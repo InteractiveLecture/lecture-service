@@ -3,74 +3,53 @@ package models
 import (
 	"errors"
 
+	"gopkg.in/mgo.v2/bson"
+
 	"github.com/asaskevich/govalidator"
 )
 
-type Topic struct {
-	name        string `valid:"utfletternumeric,required"`
-	description string `valid:"utfletternumeric,required"`
-	officers    map[string]bool
-	assistants  map[string]bool
+type Module struct {
+	ID              string `bson:"_id,omitempty"`
+	TopicID         string
+	Recommendations []string
+	Path            string
 }
 
-func toSet(slice []string) map[string]bool {
-	var result = make(map[string]bool)
+type Topic struct {
+	ID          string `bson:"_id,omitempty"`
+	Name        string `valid:"utfletternumeric,required"`
+	Description string `valid:"utfletternumeric,required"`
+	Officers    []string
+	Assistants  []string
+}
+
+func cleanDuplicates(slice []string) []string {
+	var set = make(map[string]bool)
 	for _, v := range slice {
-		result[v] = true
+		set[v] = true
+	}
+	var result = make([]string, len(set))
+	i := 0
+	for k, _ := range set {
+		result[i] = k
+		i = i + 1
 	}
 	return result
 }
 func NewTopic(name, description string, officers []string, assistants ...string) (*Topic, error) {
+
 	t := &Topic{
-		name:        name,
-		description: description,
-		officers:    toSet(officers),
-		assistants:  toSet(assistants),
+		ID:          bson.NewObjectId().Hex(),
+		Name:        name,
+		Description: description,
+		Officers:    cleanDuplicates(officers),
+		Assistants:  cleanDuplicates(assistants),
 	}
 	err := t.Validate()
 	if err != nil {
 		return nil, err
 	}
 	return t, nil
-}
-
-func (t *Topic) AddOfficers(officers ...string) {
-	for _, o := range officers {
-		t.officers[o] = true
-	}
-}
-
-func (t *Topic) RemoveOfficers(officers ...string) error {
-	tmp := t.officers
-	for _, o := range officers {
-		delete(tmp, o)
-	}
-	if len(tmp) > 0 {
-		t.officers = tmp
-
-		return nil
-	}
-	return errors.New("Must have at least one officer")
-}
-
-func (t *Topic) Name() string {
-	return t.name
-}
-
-func (t *Topic) SetName(name string) error {
-	if !govalidator.IsUTFLetterNumeric(name) {
-		return validationError()
-	}
-	t.name = name
-	return nil
-}
-
-func (t *Topic) SetDescription(desc string) error {
-	if !govalidator.IsUTFLetterNumeric(desc) {
-		return validationError()
-	}
-	t.description = desc
-	return nil
 }
 
 func validationError() error {

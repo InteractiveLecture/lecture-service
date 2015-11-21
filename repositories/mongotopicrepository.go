@@ -7,44 +7,56 @@ import (
 	"gopkg.in/mgo.v2/bson"
 )
 
-type Repository interface {
-	GetOne(id string) (*models.Topic, error)
-	GetAll(paginator paginator.PageRequest) ([]models.Topic, error)
-	Create(topic *models.Topic) error
-	Delete(ids ...string) error
-	Update(id string, newValues map[string]interface{}) error
-	Close()
+type MongoRepositoryFactory struct {
+	originalSession *mgo.Session
 }
 
-type TopicRepository interface {
-	Repository
-}
-
-const (
-	COL = "topics"
-)
-
-var originalSession *mgo.Session
-
-func init() {
-	var err error
-	originalSession, err = mgo.Dial("mongo") //TODO config file oder sowas für host
-	//TODO timeout und retries hinzufügen.
-	if err != nil {
-		panic(err)
-	}
+func (f *MongoRepositoryFactory) CreateRepository() TopicRepository {
+	return &MongoTopicRepository{f.originalSession.Clone()}
 }
 
 type MongoTopicRepository struct {
 	*mgo.Session
 }
 
-func NewTopicRepository() TopicRepository {
-	return &MongoTopicRepository{originalSession.Clone()}
-}
-
 func (t *MongoTopicRepository) col() *mgo.Collection {
 	return t.DB("lecture").C("topics")
+}
+
+func (r *MongoTopicRepository) AddOfficers(id string, officers ...string) error {
+	return r.addSlice(id, "officers", officers)
+}
+
+func (r *MongoTopicRepository) addSlice(id, arrayName string, slice interface{}) error {
+	return r.col().Update(bson.M{"_id": id}, bson.M{
+		"$push": bson.M{
+			arrayName: bson.M{
+				"$each": slice,
+			},
+		},
+	})
+}
+
+func (r *MongoTopicRepository) RemoveAssistants(id string, assistants ...string) error {
+	return r.removeSlice(id, "assistants", assistants)
+}
+
+func (r *MongoTopicRepository) RemoveOfficers(id string, officers ...string) error {
+	return r.removeSlice(id, "officers", officers)
+}
+
+func (r *MongoTopicRepository) removeSlice(id, sliceName string, data interface{}) error {
+	return r.col().Update(bson.M{"_id": id}, bson.M{
+		"$pull": bson.M{
+			sliceName: bson.M{
+				"$in": data,
+			},
+		},
+	})
+}
+
+func (r *MongoTopicRepository) AddAssistants(id string, assistants ...string) error {
+	return r.addSlice(id, "assistants", assistants)
 }
 
 func (t *MongoTopicRepository) GetOne(id string) (topic *models.Topic, err error) {

@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/gorilla/mux"
+	"github.com/InteractiveLecture/id-extractor"
 	"github.com/richterrettich/lecture-service/models"
 	"github.com/richterrettich/lecture-service/paginator"
 	"github.com/richterrettich/lecture-service/repositories"
@@ -18,14 +18,15 @@ func (handler errorHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func NewCollectionHandler(reposiroty repositories.TopicRepository) http.Handler {
+func CollectionHandler(factory repositories.TopicRepositoryFactory) http.Handler {
 	handlerFunc := func(w http.ResponseWriter, r *http.Request) error {
+		repository := factory.CreateRepository()
+		defer repository.Close()
 		pageRequest, err := paginator.ParsePages(r.URL)
 		if err != nil {
 			return err
 		}
-		defer reposiroty.Close()
-		result, err := repo.GetAll(pageRequest)
+		result, err := repository.GetAll(pageRequest)
 		if err != nil {
 			return err
 		}
@@ -34,12 +35,15 @@ func NewCollectionHandler(reposiroty repositories.TopicRepository) http.Handler 
 	return createHandler(handlerFunc)
 }
 
-func NewFindHandler(repository repositories.TopicRepository) http.Handler {
+func FindHandler(factory repositories.TopicRepositoryFactory, extractor idextractor.Extractor) http.Handler {
 	handlerFunc := func(w http.ResponseWriter, r *http.Request) error {
-		vars := mux.Vars(r)
-		id := vars["id"]
+		repository := factory.CreateRepository()
 		defer repository.Close()
-		result, err := repo.GetOne(id)
+		id, err := extractor(r)
+		if err != nil {
+			return err
+		}
+		result, err := repository.GetOne(id)
 		if err != nil {
 			return err
 		}
@@ -48,10 +52,11 @@ func NewFindHandler(repository repositories.TopicRepository) http.Handler {
 	return createHandler(handlerFunc)
 }
 
-func NewCreateHandler(repository repositories.TopicRepository) http.Handler {
+func CreateHandler(factory repositories.TopicRepositoryFactory) http.Handler {
 	handlerFunc := func(w http.ResponseWriter, r *http.Request) error {
-		defer reposiroty.Close()
-		var topic models.Topic
+		repository := factory.CreateRepository()
+		defer repository.Close()
+		var topic *models.Topic
 		err := json.NewDecoder(r.Body).Decode(topic)
 		if err != nil {
 			http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
@@ -67,12 +72,16 @@ func NewCreateHandler(repository repositories.TopicRepository) http.Handler {
 	return createHandler(handlerFunc)
 }
 
-func NewUpdateHandler(repository repositories.TopicRepository) http.Handler {
+func UpdateHandler(factory repositories.TopicRepositoryFactory, extractor idextractor.Extractor) http.Handler {
 	handlerFunc := func(w http.ResponseWriter, r *http.Request) error {
+		repository := factory.CreateRepository()
 		defer repository.Close()
-		id := mux.Vars(r)["id"]
+		id, err := extractor(r)
+		if err != nil {
+			return err
+		}
 		var newValues = make(map[string]interface{})
-		err := json.NewDecoder(r.Body).Decode(newValues)
+		err = json.NewDecoder(r.Body).Decode(newValues)
 		if err != nil {
 			http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 			return nil
@@ -80,6 +89,111 @@ func NewUpdateHandler(repository repositories.TopicRepository) http.Handler {
 		return repository.Update(id, newValues)
 	}
 	return createHandler(handlerFunc)
+}
+
+func AddOfficersHandler(factory repositories.TopicRepositoryFactory, extractor idextractor.Extractor) http.Handler {
+	handlerFunc := func(w http.ResponseWriter, r *http.Request) error {
+		repository := factory.CreateRepository()
+		defer repository.Close()
+		id, err := extractor(r)
+		if err != nil {
+			return err
+		}
+		var officers = make([]string, 0)
+		err = json.NewDecoder(r.Body).Decode(officers)
+		if err != nil {
+			http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+			return nil
+		}
+		return repository.AddOfficers(id, officers...)
+	}
+	return createHandler(handlerFunc)
+}
+
+func AddAssistantsHandler(factory repositories.TopicRepositoryFactory, extractor idextractor.Extractor) http.Handler {
+	handlerFunc := func(w http.ResponseWriter, r *http.Request) error {
+		repository := factory.CreateRepository()
+		defer repository.Close()
+		id, err := extractor(r)
+		if err != nil {
+			return err
+		}
+		var assistants = make([]string, 0)
+		err = json.NewDecoder(r.Body).Decode(assistants)
+		if err != nil {
+			http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+			return nil
+		}
+		return repository.AddAssistants(id, assistants...)
+	}
+	return createHandler(handlerFunc)
+}
+func RemoveOfficersHandler(factory repositories.TopicRepositoryFactory, extractor idextractor.Extractor) http.Handler {
+
+	handlerFunc := func(w http.ResponseWriter, r *http.Request) error {
+		repository := factory.CreateRepository()
+		defer repository.Close()
+		defer r.Body.Close()
+		id, err := extractor(r)
+		if err != nil {
+			return err
+		}
+		var officers = make([]string, 0)
+		err = json.NewDecoder(r.Body).Decode(officers)
+		if err != nil {
+			http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+			return nil
+		}
+		return repository.RemoveOfficers(id, officers...)
+	}
+	return createHandler(handlerFunc)
+}
+
+func RemoveAssistantsHandler(factory repositories.TopicRepositoryFactory, extractor idextractor.Extractor) http.Handler {
+
+	handlerFunc := func(w http.ResponseWriter, r *http.Request) error {
+		repository := factory.CreateRepository()
+		defer repository.Close()
+		defer r.Body.Close()
+		id, err := extractor(r)
+		if err != nil {
+			return err
+		}
+		var assistants = make([]string, 0)
+		err = json.NewDecoder(r.Body).Decode(assistants)
+		if err != nil {
+			http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+			return nil
+		}
+		return repository.RemoveAssistants(id, assistants...)
+	}
+	return createHandler(handlerFunc)
+}
+
+func GetModulesHandler(factory repositories.ModuleRepositoryFactory, extractor idextractor.Extractor) http.Handler {
+	handlerFunc := func(w http.ResponseWriter, r *http.Request) error {
+		repository := factory.CreateRepository()
+		defer repository.Close()
+		id, err := extracotr(r)
+		if err != nil {
+			http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+			return nil
+		}
+		result, err := repository.GetByLectureId(id)
+		if err != nil {
+			return err
+		}
+		return json.NewEncoder(w).Encode(result)
+	}
+	return createHandler(handlerFunc)
+}
+
+func CreateModuleHandler(factory repositories.ModuleRepositoryFactory, extractor idextractor.Extractor) http.Handler {
+	handlerFunc := func(w http.ResponseWriter, r *http.Request) {
+		repository := factory.CreateRepository()
+		repository.Close()
+
+	}
 }
 
 func createHandler(handlerFunc errorHandler) http.Handler {
