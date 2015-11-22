@@ -15,6 +15,26 @@ func (f *MongoRepositoryFactory) CreateRepository() TopicRepository {
 	return &MongoTopicRepository{f.originalSession.Clone()}
 }
 
+func (r *MongoTopicRepository) topicToBson(t *models.Topic) *bson.M {
+	return &bson.M{
+		"_id":         t.ID,
+		"name":        t.Name,
+		"description": t.Description,
+		"officers":    t.Officers,
+		"assistants":  t.Assistants,
+	}
+}
+
+func (r *MongoTopicRepository) MapToTopic(values map[string]interface{}) *models.Topic {
+	return &models.Topic{
+		ID:          values["_id"].(string),
+		Name:        values["name"].(string),
+		Description: values["description"].(string),
+		Officers:    values["officers"].([]string),
+		Assistants:  values["assistants"].([]string),
+	}
+}
+
 type MongoTopicRepository struct {
 	*mgo.Session
 }
@@ -60,17 +80,34 @@ func (r *MongoTopicRepository) AddAssistants(id string, assistants ...string) er
 }
 
 func (t *MongoTopicRepository) GetOne(id string) (topic *models.Topic, err error) {
-	err = t.col().FindId(id).One(topic)
+	m := bson.M{}
+	err = t.col().FindId(id).One(m)
+	topic = t.MapToTopic(m)
 	return
 }
 
-func (t *MongoTopicRepository) Create(topic *models.Topic) error {
-	return t.col().Insert(topic)
+func (t *MongoTopicRepository) Create(topic *models.Topic) (string, error) {
+	id := bson.NewObjectId().Hex()
+	topic.ID = id
+	err := t.col().Insert(t.topicToBson(topic))
+	if err != nil {
+		return "", err
+	}
+	return id, nil
 }
 
-func (t *MongoTopicRepository) GetAll(page paginator.PageRequest) ([]models.Topic, error) {
-	var result = make([]models.Topic, 0)
-	return result, ApplyPagination(t.col().Find(nil), page, result)
+func (t *MongoTopicRepository) GetAll(page paginator.PageRequest) ([]*models.Topic, error) {
+	var bsons = make([]bson.M, 0)
+	err := ApplyPagination(t.col().Find(nil), page, bsons)
+	if err != nil {
+		return nil, err
+	}
+
+	var result = make([]*models.Topic, len(bsons))
+	for i, v := range bsons {
+		result[i] = t.MapToTopic(v)
+	}
+	return result, err
 }
 
 func (t *MongoTopicRepository) Delete(ids ...string) error {

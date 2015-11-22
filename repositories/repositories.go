@@ -7,8 +7,8 @@ import (
 
 type TopicRepository interface {
 	GetOne(id string) (*models.Topic, error)
-	GetAll(paginator paginator.PageRequest) ([]models.Topic, error)
-	Create(topic *models.Topic) error
+	GetAll(paginator paginator.PageRequest) ([]*models.Topic, error)
+	Create(topic *models.Topic) (id string, err error)
 	Delete(ids ...string) error
 	Update(id string, newValues map[string]interface{}) error
 	Close()
@@ -23,8 +23,8 @@ type TopicRepositoryFactory interface {
 }
 
 type ModuleRepository interface {
-	GetOne(id string) (*models.Topic, error)
-	GetByLectureId(lectureId string) ([]models.Topic, error)
+	GetOne(id string) (*models.Module, error)
+	GetByLectureId(lectureId string, dr paginator.DepthRequest) ([]*models.Module, error)
 	Create(module *models.Module) error
 	Close()
 }

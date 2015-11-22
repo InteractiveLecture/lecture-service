@@ -24,6 +24,26 @@ type Sort struct {
 	Direction SortDirection
 }
 
+type DepthRequest struct {
+	Layer       int
+	Ancestors   int
+	Descendants int
+}
+
+func ParseDepth(u *url.URL) (dr DepthRequest, err error) {
+	dr = DepthRequest{}
+	dr.Layer, err = strconv.Atoi(parsePart(u, "layer", "0"))
+	if err != nil {
+		return
+	}
+	dr.Ancestors, err = strconv.Atoi(parsePart(u, "ancestors", "0"))
+	if err != nil {
+		return
+	}
+	dr.Descendants, err = strconv.Atoi(parsePart(u, "descendants", "-1"))
+	return
+}
+
 func ParsePages(u *url.URL) (page PageRequest, err error) {
 	page = PageRequest{}
 	page.Number, err = strconv.Atoi(parsePart(u, "page", "0"))

@@ -1,4 +1,4 @@
-package topicshandler
+package handler
 
 import (
 	"encoding/json"
@@ -10,89 +10,97 @@ import (
 	"github.com/richterrettich/lecture-service/repositories"
 )
 
-type errorHandler func(http.ResponseWriter, *http.Request) error
-
-func (handler errorHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if err := handler(w, r); err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-	}
-}
-
 func CollectionHandler(factory repositories.TopicRepositoryFactory) http.Handler {
-	handlerFunc := func(w http.ResponseWriter, r *http.Request) error {
+	handlerFunc := func(w http.ResponseWriter, r *http.Request) int {
 		repository := factory.CreateRepository()
 		defer repository.Close()
 		pageRequest, err := paginator.ParsePages(r.URL)
 		if err != nil {
-			return err
+			return http.StatusInternalServerError
 		}
 		result, err := repository.GetAll(pageRequest)
 		if err != nil {
-			return err
+			return http.StatusInternalServerError
 		}
-		return json.NewEncoder(w).Encode(result)
+		err = json.NewEncoder(w).Encode(result)
+		if err != nil {
+			return http.StatusInternalServerError
+		}
+		return -1
 	}
 	return createHandler(handlerFunc)
 }
 
 func FindHandler(factory repositories.TopicRepositoryFactory, extractor idextractor.Extractor) http.Handler {
-	handlerFunc := func(w http.ResponseWriter, r *http.Request) error {
+	handlerFunc := func(w http.ResponseWriter, r *http.Request) int {
 		repository := factory.CreateRepository()
 		defer repository.Close()
 		id, err := extractor(r)
 		if err != nil {
-			return err
+			return http.StatusInternalServerError
 		}
 		result, err := repository.GetOne(id)
 		if err != nil {
-			return err
+			return http.StatusNotFound
 		}
-		return json.NewEncoder(w).Encode(result)
+		err = json.NewEncoder(w).Encode(result)
+		if err != nil {
+			return http.StatusInternalServerError
+		}
+		return -1
 	}
 	return createHandler(handlerFunc)
 }
 
 func CreateHandler(factory repositories.TopicRepositoryFactory) http.Handler {
-	handlerFunc := func(w http.ResponseWriter, r *http.Request) error {
+	handlerFunc := func(w http.ResponseWriter, r *http.Request) int {
 		repository := factory.CreateRepository()
 		defer repository.Close()
 		var topic *models.Topic
 		err := json.NewDecoder(r.Body).Decode(topic)
 		if err != nil {
-			http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
-			return nil
+			return http.StatusBadRequest
 		}
-		err = topic.Validate()
+		err = models.Validate(topic)
 		if err != nil {
-			http.Error(w, "validation failed", http.StatusBadRequest)
-			return nil
+			return http.StatusBadRequest
 		}
-		return repository.Create(topic)
+
+		id, err = repository.Create(topic)
+		if err != nil {
+			return http.StatusInternalServerError
+		}
+		w.WriteHeader(http.StatusCreated)
+		w.Header().Set("Location", id)
+		return -1
 	}
 	return createHandler(handlerFunc)
 }
 
 func UpdateHandler(factory repositories.TopicRepositoryFactory, extractor idextractor.Extractor) http.Handler {
-	handlerFunc := func(w http.ResponseWriter, r *http.Request) error {
+	handlerFunc := func(w http.ResponseWriter, r *http.Request) int {
 		repository := factory.CreateRepository()
 		defer repository.Close()
 		id, err := extractor(r)
 		if err != nil {
-			return err
+			return http.StatusInternalServerError
 		}
 		var newValues = make(map[string]interface{})
+		//TODO validate new values.
 		err = json.NewDecoder(r.Body).Decode(newValues)
 		if err != nil {
-			http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
-			return nil
+			return http.StatusBadRequest
 		}
-		return repository.Update(id, newValues)
+		err = repository.Update(id, newValues)
+		if err != nil {
+			return http.StatusInternalServerError
+		}
 	}
 	return createHandler(handlerFunc)
 }
 
 func AddOfficersHandler(factory repositories.TopicRepositoryFactory, extractor idextractor.Extractor) http.Handler {
-	handlerFunc := func(w http.ResponseWriter, r *http.Request) error {
+	handlerFunc := func(w http.ResponseWriter, r *http.Request) int {
 		repository := factory.CreateRepository()
 		defer repository.Close()
 		id, err := extractor(r)
@@ -111,7 +119,7 @@ func AddOfficersHandler(factory repositories.TopicRepositoryFactory, extractor i
 }
 
 func AddAssistantsHandler(factory repositories.TopicRepositoryFactory, extractor idextractor.Extractor) http.Handler {
-	handlerFunc := func(w http.ResponseWriter, r *http.Request) error {
+	handlerFunc := func(w http.ResponseWriter, r *http.Request) int {
 		repository := factory.CreateRepository()
 		defer repository.Close()
 		id, err := extractor(r)
@@ -174,12 +182,16 @@ func GetModulesHandler(factory repositories.ModuleRepositoryFactory, extractor i
 	handlerFunc := func(w http.ResponseWriter, r *http.Request) error {
 		repository := factory.CreateRepository()
 		defer repository.Close()
-		id, err := extracotr(r)
+		id, err := extractor(r)
 		if err != nil {
 			http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 			return nil
 		}
-		result, err := repository.GetByLectureId(id)
+		dr, err := paginator.ParseDepth(r.URL)
+		if err != nil {
+			return err
+		}
+		result, err := repository.GetByLectureId(id, dr)
 		if err != nil {
 			return err
 		}
@@ -189,13 +201,22 @@ func GetModulesHandler(factory repositories.ModuleRepositoryFactory, extractor i
 }
 
 func CreateModuleHandler(factory repositories.ModuleRepositoryFactory, extractor idextractor.Extractor) http.Handler {
-	handlerFunc := func(w http.ResponseWriter, r *http.Request) {
+	handlerFunc := func(w http.ResponseWriter, r *http.Request) error {
 		repository := factory.CreateRepository()
-		repository.Close()
-
+		defer repository.Close()
+		m := &models.Module{}
+		err := json.NewDecoder(r.Body).Decode(m)
+		defer r.Body.Close()
+		if err != nil {
+			http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+			return nil
+		}
+		err = models.Validate(m)
+		if err != nil {
+			http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+			return nil
+		}
+		return repository.Create(m)
 	}
-}
-
-func createHandler(handlerFunc errorHandler) http.Handler {
-	return http.Handler(errorHandler(handlerFunc))
+	return createHandler(handlerFunc)
 }

@@ -3,24 +3,39 @@ package models
 import (
 	"errors"
 
-	"gopkg.in/mgo.v2/bson"
-
 	"github.com/asaskevich/govalidator"
 )
 
 type Module struct {
-	ID              string `bson:"_id,omitempty"`
-	TopicID         string
+	ID              string
+	Description     string `valid:"utfletternumeric,required"`
+	TopicID         string `valid:"utfletternumeric,required"`
 	Recommendations []string
-	Path            string
+	Parents         []string
+	Depth           uint
 }
 
 type Topic struct {
-	ID          string `bson:"_id,omitempty"`
+	ID          string
 	Name        string `valid:"utfletternumeric,required"`
 	Description string `valid:"utfletternumeric,required"`
 	Officers    []string
 	Assistants  []string
+}
+
+func NewModule(id, description, topicId string, depth uint, parents ...string) (*Module, error) {
+	m := &Module{
+		ID:          id,
+		Description: description,
+		TopicID:     topicId,
+		Parents:     parents,
+		Depth:       depth,
+	}
+	err := Validate(m)
+	if err != nil {
+		return nil, err
+	}
+	return m, nil
 }
 
 func cleanDuplicates(slice []string) []string {
@@ -36,16 +51,16 @@ func cleanDuplicates(slice []string) []string {
 	}
 	return result
 }
-func NewTopic(name, description string, officers []string, assistants ...string) (*Topic, error) {
+func NewTopic(id, name, description string, officers []string, assistants ...string) (*Topic, error) {
 
 	t := &Topic{
-		ID:          bson.NewObjectId().Hex(),
+		ID:          id,
 		Name:        name,
 		Description: description,
 		Officers:    cleanDuplicates(officers),
 		Assistants:  cleanDuplicates(assistants),
 	}
-	err := t.Validate()
+	err := Validate(t)
 	if err != nil {
 		return nil, err
 	}
@@ -56,7 +71,7 @@ func validationError() error {
 	return errors.New("Violated validation")
 }
 
-func (t *Topic) Validate() error {
+func Validate(t interface{}) error {
 	result, err := govalidator.ValidateStruct(t)
 	if err != nil {
 		return err
