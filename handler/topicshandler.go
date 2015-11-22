@@ -4,13 +4,12 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/InteractiveLecture/id-extractor"
 	"github.com/richterrettich/lecture-service/models"
 	"github.com/richterrettich/lecture-service/paginator"
 	"github.com/richterrettich/lecture-service/repositories"
 )
 
-func CollectionHandler(factory repositories.TopicRepositoryFactory) http.Handler {
+func TopicCollectionHandler(factory repositories.TopicRepositoryFactory) http.Handler {
 	handlerFunc := func(w http.ResponseWriter, r *http.Request) int {
 		repository := factory.CreateRepository()
 		defer repository.Close()
@@ -31,7 +30,7 @@ func CollectionHandler(factory repositories.TopicRepositoryFactory) http.Handler
 	return createHandler(handlerFunc)
 }
 
-func FindHandler(factory repositories.TopicRepositoryFactory, extractor idextractor.Extractor) http.Handler {
+func TopicFindHandler(factory repositories.TopicRepositoryFactory, extractor idextractor.Extractor) http.Handler {
 	handlerFunc := func(w http.ResponseWriter, r *http.Request) int {
 		repository := factory.CreateRepository()
 		defer repository.Close()
@@ -52,7 +51,7 @@ func FindHandler(factory repositories.TopicRepositoryFactory, extractor idextrac
 	return createHandler(handlerFunc)
 }
 
-func CreateHandler(factory repositories.TopicRepositoryFactory) http.Handler {
+func TopicCreateHandler(factory repositories.TopicRepositoryFactory) http.Handler {
 	handlerFunc := func(w http.ResponseWriter, r *http.Request) int {
 		repository := factory.CreateRepository()
 		defer repository.Close()
@@ -77,7 +76,7 @@ func CreateHandler(factory repositories.TopicRepositoryFactory) http.Handler {
 	return createHandler(handlerFunc)
 }
 
-func UpdateHandler(factory repositories.TopicRepositoryFactory, extractor idextractor.Extractor) http.Handler {
+func TopicUpdateHandler(factory repositories.TopicRepositoryFactory, extractor idextractor.Extractor) http.Handler {
 	handlerFunc := func(w http.ResponseWriter, r *http.Request) int {
 		repository := factory.CreateRepository()
 		defer repository.Close()
@@ -99,124 +98,91 @@ func UpdateHandler(factory repositories.TopicRepositoryFactory, extractor idextr
 	return createHandler(handlerFunc)
 }
 
-func AddOfficersHandler(factory repositories.TopicRepositoryFactory, extractor idextractor.Extractor) http.Handler {
+func TopicAddOfficersHandler(factory repositories.TopicRepositoryFactory, extractor idextractor.Extractor) http.Handler {
 	handlerFunc := func(w http.ResponseWriter, r *http.Request) int {
 		repository := factory.CreateRepository()
 		defer repository.Close()
 		id, err := extractor(r)
 		if err != nil {
-			return err
+			return http.StatusInternalServerError
 		}
 		var officers = make([]string, 0)
 		err = json.NewDecoder(r.Body).Decode(officers)
 		if err != nil {
-			http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
-			return nil
+			return http.StatusBadRequest
 		}
-		return repository.AddOfficers(id, officers...)
+		err = repository.AddOfficers(id, officers...)
+		if err != nil {
+			return http.StatusInternalServerError
+		}
+		return -1
 	}
 	return createHandler(handlerFunc)
 }
 
-func AddAssistantsHandler(factory repositories.TopicRepositoryFactory, extractor idextractor.Extractor) http.Handler {
+func TopicAddAssistantsHandler(factory repositories.TopicRepositoryFactory, extractor idextractor.Extractor) http.Handler {
 	handlerFunc := func(w http.ResponseWriter, r *http.Request) int {
 		repository := factory.CreateRepository()
 		defer repository.Close()
 		id, err := extractor(r)
 		if err != nil {
-			return err
+			return http.StatusInternalServerError
 		}
 		var assistants = make([]string, 0)
 		err = json.NewDecoder(r.Body).Decode(assistants)
 		if err != nil {
-			http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
-			return nil
+			return http.StatusBadRequest
 		}
-		return repository.AddAssistants(id, assistants...)
+		err = repository.AddAssistants(id, assistants...)
+		if err != nil {
+			return http.StatusInternalServerError
+		}
+		return -1
 	}
 	return createHandler(handlerFunc)
 }
-func RemoveOfficersHandler(factory repositories.TopicRepositoryFactory, extractor idextractor.Extractor) http.Handler {
 
-	handlerFunc := func(w http.ResponseWriter, r *http.Request) error {
+func TopicRemoveOfficersHandler(factory repositories.TopicRepositoryFactory, extractor idextractor.Extractor) http.Handler {
+	handlerFunc := func(w http.ResponseWriter, r *http.Request) int {
 		repository := factory.CreateRepository()
 		defer repository.Close()
-		defer r.Body.Close()
 		id, err := extractor(r)
 		if err != nil {
-			return err
+			return http.StatusInternalServerError
 		}
 		var officers = make([]string, 0)
 		err = json.NewDecoder(r.Body).Decode(officers)
 		if err != nil {
-			http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
-			return nil
+			return http.StatusBadRequest
 		}
-		return repository.RemoveOfficers(id, officers...)
+		err = repository.RemoveOfficers(id, officers...)
+		if err != nil {
+			return http.StatusInternalServerError
+		}
+		return -1
 	}
 	return createHandler(handlerFunc)
 }
 
-func RemoveAssistantsHandler(factory repositories.TopicRepositoryFactory, extractor idextractor.Extractor) http.Handler {
+func TopicRemoveAssistantsHandler(factory repositories.TopicRepositoryFactory, extractor idextractor.Extractor) http.Handler {
 
-	handlerFunc := func(w http.ResponseWriter, r *http.Request) error {
+	handlerFunc := func(w http.ResponseWriter, r *http.Request) int {
 		repository := factory.CreateRepository()
 		defer repository.Close()
-		defer r.Body.Close()
 		id, err := extractor(r)
 		if err != nil {
-			return err
+			return http.StatusInternalServerError
 		}
 		var assistants = make([]string, 0)
 		err = json.NewDecoder(r.Body).Decode(assistants)
 		if err != nil {
-			http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
-			return nil
+			return http.StatusBadRequest
 		}
-		return repository.RemoveAssistants(id, assistants...)
-	}
-	return createHandler(handlerFunc)
-}
-
-func GetModulesHandler(factory repositories.ModuleRepositoryFactory, extractor idextractor.Extractor) http.Handler {
-	handlerFunc := func(w http.ResponseWriter, r *http.Request) error {
-		repository := factory.CreateRepository()
-		defer repository.Close()
-		id, err := extractor(r)
+		err = repository.RemoveAssistants(id, assistants...)
 		if err != nil {
-			http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
-			return nil
+			return http.StatusInternalServerError
 		}
-		dr, err := paginator.ParseDepth(r.URL)
-		if err != nil {
-			return err
-		}
-		result, err := repository.GetByLectureId(id, dr)
-		if err != nil {
-			return err
-		}
-		return json.NewEncoder(w).Encode(result)
-	}
-	return createHandler(handlerFunc)
-}
-
-func CreateModuleHandler(factory repositories.ModuleRepositoryFactory, extractor idextractor.Extractor) http.Handler {
-	handlerFunc := func(w http.ResponseWriter, r *http.Request) error {
-		repository := factory.CreateRepository()
-		defer repository.Close()
-		m := &models.Module{}
-		err := json.NewDecoder(r.Body).Decode(m)
-		defer r.Body.Close()
-		if err != nil {
-			http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
-			return nil
-		}
-		err = models.Validate(m)
-		if err != nil {
-			http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
-			return nil
-		}
-		return repository.Create(m)
+		return -1
 	}
 	return createHandler(handlerFunc)
 }

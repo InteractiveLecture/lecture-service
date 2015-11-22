@@ -8,6 +8,7 @@ func (handler errorHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if status := handler(w, r); status != -1 {
 		w.WriteHeader(status)
 	}
+	defer r.Body.Close()
 }
 
 func createHandler(handlerFunc errorHandler) http.Handler {
