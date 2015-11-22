@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/InteractiveLecture/id-extractor"
 	"github.com/richterrettich/lecture-service/models"
 	"github.com/richterrettich/lecture-service/paginator"
 	"github.com/richterrettich/lecture-service/repositories"
@@ -65,7 +66,7 @@ func TopicCreateHandler(factory repositories.TopicRepositoryFactory) http.Handle
 			return http.StatusBadRequest
 		}
 
-		id, err = repository.Create(topic)
+		id, err := repository.Create(topic)
 		if err != nil {
 			return http.StatusInternalServerError
 		}
@@ -94,6 +95,7 @@ func TopicUpdateHandler(factory repositories.TopicRepositoryFactory, extractor i
 		if err != nil {
 			return http.StatusInternalServerError
 		}
+		return -1
 	}
 	return createHandler(handlerFunc)
 }

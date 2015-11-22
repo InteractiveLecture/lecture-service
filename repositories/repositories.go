@@ -26,6 +26,7 @@ type ModuleRepository interface {
 	GetOne(id string) (*models.Module, error)
 	GetByLectureId(lectureId string, dr paginator.DepthRequest) ([]*models.Module, error)
 	Create(module *models.Module) error
+	GetChildren(id string) ([]*models.Module, error)
 	Close()
 }
 

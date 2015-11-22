@@ -3,8 +3,10 @@ package repositories
 import (
 	"github.com/richterrettich/lecture-service/models"
 	"github.com/richterrettich/lecture-service/paginator"
+	"github.com/richterrettich/lecture-service/patch"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
+	"gopkg.in/mgo.v2/txn"
 )
 
 type MModuleRepoFactory struct {
@@ -23,26 +25,18 @@ func (r *MModuleRepo) col() *mgo.Collection {
 	return r.DB("lecture").C("modules")
 }
 
+func (r *MModuleRepo) ApplyPatch(topicId string, p patch.Patch) error {
+	txn.Op{
+		C: "modules",
+		ID: 
+	}
+}
+
+func (r *MModuleRepo) GetChildren(id string) ([]*models.Module, error) {
+
+}
+
 func (r *MModuleRepo) Create(m *models.Module) error {
-	lastModule := &models.Module{}
-	err := r.col().Find(bson.M{"topic_id": m.TopicID}).Sort("-depth").Limit(1).One(lastModule)
-	if err != nil {
-		// if this error occurs, this must be the root module.
-		if err == mgo.ErrNotFound {
-			m.Depth = 0
-			insertError := r.col().Insert(m)
-			if insertError != nil {
-				return insertError
-			}
-		} else {
-			//something went wrong with the database
-			return err
-		}
-	}
-	//new last module
-	if lastModule.Depth+1 <= m.Depth {
-		m.Depth = lastModule.Depth + 1
-	}
 	return r.col().Insert(m)
 }
 

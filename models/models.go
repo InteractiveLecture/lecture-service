@@ -2,6 +2,7 @@ package models
 
 import (
 	"errors"
+	"time"
 
 	"github.com/asaskevich/govalidator"
 )
@@ -12,15 +13,50 @@ type Module struct {
 	TopicID         string `valid:"utfletternumeric,required"`
 	Recommendations []string
 	Parents         []string
+	Ancestors       []string
 	Depth           uint
+	LastModified    time.Time
+	Exercises       []Exercise
+}
+
+type Exercise struct {
+	ID      string
+	Task    string
+	Hints   []string
+	Backend string
+
+	LastModified time.Time
+}
+
+type Hint struct {
+	ID           string
+	Content      string
+	Cost         int
+	LastModified time.Time
+}
+
+type TopicBalance struct {
+	UserID  string
+	TopicID string
+	Amount  int
+}
+
+type ActivityHistory struct {
+	UserID     string
+	ActivityID string
+	Amount     int
+	Kind       string
+	Action     string
+	Date       time.Time
 }
 
 type Topic struct {
-	ID          string
-	Name        string `valid:"utfletternumeric,required"`
-	Description string `valid:"utfletternumeric,required"`
-	Officers    []string
-	Assistants  []string
+	ID           string
+	Name         string `valid:"utfletternumeric,required"`
+	Description  string `valid:"utfletternumeric,required"`
+	Officers     []string
+	Assistants   []string
+	LastModified time.Time
 }
 
 func NewModule(id, description, topicId string, depth uint, parents ...string) (*Module, error) {
