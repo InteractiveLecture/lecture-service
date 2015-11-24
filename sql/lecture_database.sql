@@ -1,15 +1,15 @@
-drop table topics cascade;
-drop table modules cascade;
-drop table exercises cascade;
-drop table hints cascade;
+drop table if exists topics cascade;
+drop table if exists modules cascade ;
+drop table if exists exercises cascade;
+drop table if exists hints cascade;
 
-drop table topic_authority cascade;
-drop table topic_balances cascade ;
-drop table hint_purchase_histories cascade;
-drop table exercise_progress_histories cascade;
-drop table module_progress_histories cascade;
-drop table module_parents cascade;
-drop table module_recommendations cascade;
+drop table if exists topic_authority cascade;
+drop table if exists topic_balances cascade ;
+drop table if exists hint_purchase_histories cascade;
+drop table if exists exercise_progress_histories cascade;
+drop table if exists module_progress_histories cascade;
+drop table if exists module_parents cascade;
+drop table if exists module_recommendations cascade;
 
 create table topics (
   id UUID PRIMARY KEY,
@@ -88,5 +88,5 @@ create table module_recommendations (
 create table module_parents (
   child_id UUID REFERENCES modules(id),
   parent_id UUID REFERENCES modules(id),
-  PRIMARY KEY(child_id,parent_id)
+  CONSTRAINT mp_pk PRIMARY KEY(child_id,parent_id) DEFERRABLE
 );
