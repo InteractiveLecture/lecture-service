@@ -1,3 +1,9 @@
+create user lectureapp;
+
+create database lecture owner lectureapp;
+
+\c lecture
+
 drop table if exists topics cascade;
 drop table if exists modules cascade ;
 drop table if exists exercises cascade;
@@ -10,6 +16,9 @@ drop table if exists exercise_progress_histories cascade;
 drop table if exists module_progress_histories cascade;
 drop table if exists module_parents cascade;
 drop table if exists module_recommendations cascade;
+
+
+
 
 create table topics (
   id UUID PRIMARY KEY,
@@ -90,3 +99,5 @@ create table module_parents (
   parent_id UUID REFERENCES modules(id),
   CONSTRAINT mp_pk PRIMARY KEY(child_id,parent_id) DEFERRABLE
 );
+
+

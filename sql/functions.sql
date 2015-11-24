@@ -1,3 +1,4 @@
+
 CREATE OR REPLACE FUNCTION move_module(module_id UUID, new_parent_id UUID) 
 RETURNS void AS $$
 DECLARE 
@@ -9,7 +10,7 @@ BEGIN
   SET CONSTRAINTS ALL DEFERRED;
   select module_parents.parent_id into old_parent from module_parents where child_id = module_id;
   if old_parent is null then --this means, the moving module is currently the root module.
-    select array_agg(child_id::UUID) into root_siblings from module_parents where parent_id = module_id order by description;
+    select array_agg(child_id::UUID) into root_siblings from module_parents where parent_id = module_id;
     -- this is an edge case where the moving module is the root module and it has more than one direct descendant.
     if array_length(root_siblings,1) > 1 then
       raise notice 'first sibling is %', root_siblings[1];
@@ -28,6 +29,7 @@ BEGIN
     else
       insert into module_parents values(module_id,new_parent_id);
     end if;
+
   end if;
   REFRESH MATERIALIZED VIEW module_trees;
 END;
