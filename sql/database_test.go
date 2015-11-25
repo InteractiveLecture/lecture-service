@@ -2,6 +2,8 @@ package database
 
 import (
 	"database/sql"
+	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 	"testing"
@@ -46,6 +48,18 @@ func TestMoveSingle(t *testing.T) {
 	for _, v := range modules {
 		assert.True(t, strings.HasPrefix(v.paths[0], "/"+modules["bar"].Id))
 	}
+	topicId := getTopicId(t, db, modules["foo"].Id)
+	_, err = db.Exec(`SELECT check_version($1,$2)`, topicId, 2)
+	assert.Nil(t, err)
+}
+
+func getTopicId(t *testing.T, db *sql.DB, moduleId string) string {
+	rows, err := db.Query(`SELECT t.id FROM topics t inner join modules m on t.id = m.topic_id where m.id = $1`, moduleId)
+	assert.Nil(t, err)
+	var id string
+	rows.Next()
+	rows.Scan(&id)
+	return id
 }
 
 func TestMoveTree(t *testing.T) {
@@ -61,6 +75,26 @@ func TestMoveTree(t *testing.T) {
 	}
 	assert.Equal(t, 1, modules["bar"].level)
 	_, err = db.Exec(`SELECT move_module_tree($1,$2)`, modules["bli"].Id, modules["foo"].Id)
+	assert.Nil(t, err)
+	assert.Equal(t, modules["bli"].Id, getDirectParents(modules["bla"])[0])
+}
+
+func TestDeleteModule(t *testing.T) {
+	db, err := dbConnect()
+	assert.Nil(t, err)
+	defer db.Close()
+	modules := getModules(t, db)
+	_, err = db.Exec(`SELECT delete_module($1)`, modules["bli"].Id)
+	assert.Nil(t, err)
+}
+
+func getDirectParents(m module) []string {
+	var result = make([]string, 0)
+	for _, v := range m.paths {
+		parts := strings.Split(v, "/")
+		result = append(result, parts[len(parts)-2])
+	}
+	return result
 }
 
 func getModules(t *testing.T, db *sql.DB) map[string]module {
@@ -91,9 +125,10 @@ func parseArray(arr string) []string {
 }
 
 func dbConnect() (*sql.DB, error) {
+	host := os.Getenv("PGHOST")
 	_, err := exec.Command("./prepare_data.sh").Output()
 	if err != nil {
 		panic(err)
 	}
-	return sql.Open("postgres", "postgres://lectureapp@localhost/lecture?sslmode=disable")
+	return sql.Open("postgres", fmt.Sprintf("postgres://lectureapp@%s/lecture?sslmode=disable", host))
 }

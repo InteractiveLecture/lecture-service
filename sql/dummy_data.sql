@@ -5,8 +5,8 @@ truncate table modules cascade;
 truncate table module_parents cascade;
 truncate table module_recommendations cascade;
 
-insert into topics values ( uuid_generate_v3(uuid_ns_url(),'topic_1') ,'Grundlagen der Programmierung mit Java','bla');
-insert into topics values (uuid_generate_v3(uuid_ns_url(),'topic_2') ,'Descriptive Statistik','bla');
+insert into topics values ( uuid_generate_v3(uuid_ns_url(),'topic_1') ,'Grundlagen der Programmierung mit Java','bla', 1);
+insert into topics values (uuid_generate_v3(uuid_ns_url(),'topic_2') ,'Descriptive Statistik','bla',1);
 
 
 

@@ -22,37 +22,38 @@ drop table if exists module_recommendations cascade;
 
 create table topics (
   id UUID PRIMARY KEY,
-  name VARCHAR(256),
-  description TEXT
+  name VARCHAR(256) NOT NULL,
+  description TEXT NOT NULL,
+  version BIGINT NOT NULL CHECK(version > 0 )
 );
 
 create table modules(
   id UUID PRIMARY KEY,
   topic_id UUID REFERENCES topics(id),
   description TEXT NOT NULL,
-  last_modified BIGINT NOT NULL CHECK(last_modified >0)
+  version BIGINT NOT NULL CHECK(version >0)
 );
-
 
 create table exercises (
   id UUID PRIMARY KEY,
   module_id UUID REFERENCES modules(id),
   task text NOT NULL,
   backend varchar(256) NOT NULL,
-  last_modified BIGINT NOT NULL CHECK(last_modified > 0)
+  version BIGINT NOT NULL CHECK(version > 0)
 );
 
 create table hints (
   id UUID PRIMARY KEY,
   exercise_id UUID REFERENCES exercises(id),
   content TEXT NOT NULL,
-  cost SMALLINT NOT NULL CHECK(cost > 0)
+  cost SMALLINT NOT NULL CHECK(cost > 0),
+  version BIGINT NOT NULL CHECK(version > 0)
 );
 
 
 
 create table topic_authority (
-  lecture_id UUID references topics(id),
+  topic_id UUID references topics(id),
   user_id UUID,
   kind varchar(256)
 );
@@ -95,8 +96,8 @@ create table module_recommendations (
 );
 
 create table module_parents (
-  child_id UUID REFERENCES modules(id),
-  parent_id UUID REFERENCES modules(id),
+  child_id UUID REFERENCES modules(id) ON DELETE CASCADE,
+  parent_id UUID REFERENCES modules(id) ON DELETE CASCADE,
   CONSTRAINT mp_pk PRIMARY KEY(child_id,parent_id) DEFERRABLE
 );
 
