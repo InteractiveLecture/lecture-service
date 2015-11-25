@@ -105,10 +105,10 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION insert_module(id UUID, topic_id UUID, description text,  parent_id UUID) 
+CREATE OR REPLACE FUNCTION insert_module(id UUID, topic_id UUID, description text,  video_id UUID, script_id UUID,parent_id UUID) 
 RETURNS void AS $$
 BEGIN
-  insert into modules (id,topic_id,description,version) values(id,topic_id,description,1);
+  insert into modules (id,topic_id,description,video_id,script_id,version) values(id,topic_id,description,video_id,script_id,1);
   insert into module_parents(child_id, parent_id) values(id,parent_id);
   PERFORM increment_topic_version(id);
   REFRESH MATERIALIZED VIEW module_trees;
@@ -137,3 +137,10 @@ BEGIN
   end if;
 END;
 $$ LANGUAGE plpgsql;
+
+
+
+
+
+
+

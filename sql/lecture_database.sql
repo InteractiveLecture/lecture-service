@@ -7,6 +7,7 @@ create database lecture owner lectureapp;
 drop table if exists topics cascade;
 drop table if exists modules cascade ;
 drop table if exists exercises cascade;
+drop table if exists tasks cascade;
 drop table if exists hints cascade;
 
 drop table if exists topic_authority cascade;
@@ -31,15 +32,23 @@ create table modules(
   id UUID PRIMARY KEY,
   topic_id UUID REFERENCES topics(id),
   description TEXT NOT NULL,
+  video_id UUID,
+  script_id UUID,
   version BIGINT NOT NULL CHECK(version >0)
 );
+
 
 create table exercises (
   id UUID PRIMARY KEY,
   module_id UUID REFERENCES modules(id),
-  task text NOT NULL,
   backend varchar(256) NOT NULL,
   version BIGINT NOT NULL CHECK(version > 0)
+);
+
+create table tasks (
+  id UUID PRIMARY KEY,
+  exercise_id UUID REFERENCES exercises(id),
+  task text NOT NULL
 );
 
 create table hints (
@@ -70,6 +79,7 @@ create table hint_purchase_histories (
   user_id UUID,
   hint_id UUID references hints(id),
   amount SMALLINT NOT NULL CHECK(amount >= 0),
+  time timestamp,
   PRIMARY KEY(user_id,hint_id)
 );
 
@@ -78,6 +88,7 @@ create table module_progress_histories (
   user_id UUID,
   module_id UUID references modules(id),
   reward SMALLINT NOT NULL CHECK(reward > 0),
+  time timestamp,
   PRIMARY KEY (user_id,module_id)
 );
 
@@ -86,12 +97,13 @@ create table exercise_progress_histories (
   user_id UUID,
   exercise_id UUID references exercises(id),
   reward SMALLINT NOT NULL CHECK(reward > 0 ),
+  time timestamp,
   PRIMARY KEY (user_id,exercise_id)
 );
 
 create table module_recommendations (
-  recommender_id UUID REFERENCES modules(id),
-  recommended_id UUID REFERENCES modules(id),
+  recommender_id UUID REFERENCES modules(id) ON DELETE CASCADE,
+  recommended_id UUID REFERENCES modules(id) ON DELETE CASCADE,
   PRIMARY KEY(recommended_id,recommender_id)
 );
 

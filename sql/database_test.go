@@ -14,7 +14,7 @@ import (
 )
 
 /*
-
+TOPIC 1:
 
 			FOO
 			 |
@@ -27,6 +27,9 @@ import (
 		 BAZZ
 
 
+		 TOPIC 2:
+
+		 FOOBARBAZZ
 */
 
 func TestMoveSingle(t *testing.T) {
@@ -35,19 +38,21 @@ func TestMoveSingle(t *testing.T) {
 	defer db.Close()
 
 	modules := getModules(t, db)
-	assert.Equal(t, len(modules), 6)
+	assert.Equal(t, len(modules), 7)
 	_, err = db.Exec(`SELECT move_module($1,$2)`, modules["bazz"].Id, modules["foo"].Id)
 	assert.Nil(t, err)
 	modules = getModules(t, db)
-	assert.Equal(t, len(modules), 6) //lenght shouldnt have changed.
+	assert.Equal(t, len(modules), 7) //lenght shouldnt have changed.
 	assert.Equal(t, 1, modules["bazz"].level)
 	_, err = db.Exec(`SELECT move_module($1,$2)`, modules["foo"].Id, modules["bla"].Id)
 	assert.Nil(t, err)
 	modules = getModules(t, db)
 	assert.Equal(t, 3, modules["foo"].level)
 	assert.Equal(t, 0, modules["bar"].level)
-	for _, v := range modules {
-		assert.True(t, strings.HasPrefix(v.paths[0], "/"+modules["bar"].Id))
+	for k, v := range modules {
+		if k != "foobarbazz" {
+			assert.True(t, strings.HasPrefix(v.paths[0], "/"+modules["bar"].Id))
+		}
 	}
 	topicId := getTopicId(t, db, modules["foo"].Id)
 	_, err = db.Exec(`SELECT check_version($1,$2)`, topicId, 2)
@@ -99,7 +104,7 @@ func TestDeleteModule(t *testing.T) {
 	_, err = db.Exec(`SELECT delete_module($1)`, modules["bar"].Id)
 	assert.Nil(t, err)
 	modules = getModules(t, db)
-	assert.Equal(t, 3, len(modules))
+	assert.Equal(t, 4, len(modules))
 	assert.Equal(t, modules["bla"].Id, getDirectParents(modules["blubb"])[0])
 	assert.Equal(t, fmt.Sprintf("/%s/%s/%s", modules["bla"].Id, modules["blubb"].Id, modules["bazz"].Id), modules["bazz"].paths[0])
 }
@@ -109,7 +114,7 @@ func TestInsertModule(t *testing.T) {
 	assert.Nil(t, err)
 	defer db.Close()
 	modules := getModules(t, db)
-	_, err = db.Exec(`SELECT insert_module($1,$2,$3,$4)`, uuid.NewV4().String(), modules["foo"].topicId, "hugo", modules["foo"].Id)
+	_, err = db.Exec(`SELECT insert_module($1,$2,$3,$4,$5,$6)`, uuid.NewV4().String(), modules["foo"].topicId, "hugo", uuid.NewV4(), uuid.NewV4(), modules["foo"].Id)
 	assert.Nil(t, err)
 	modules = getModules(t, db)
 	val, ok := modules["hugo"]
@@ -129,7 +134,7 @@ func TestDeleteModuleTree(t *testing.T) {
 	_, err = db.Exec(`SELECT delete_module_tree($1)`, modules["bar"].Id)
 	assert.Nil(t, err)
 	modules = getModules(t, db)
-	assert.Equal(t, 2, len(modules))
+	assert.Equal(t, 3, len(modules))
 	for _, v := range []string{"foo", "hugo"} {
 		_, ok := modules[v]
 		assert.True(t, ok)
