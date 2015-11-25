@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	_ "github.com/lib/pq"
+	"github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -86,6 +87,54 @@ func TestDeleteModule(t *testing.T) {
 	modules := getModules(t, db)
 	_, err = db.Exec(`SELECT delete_module($1)`, modules["bli"].Id)
 	assert.Nil(t, err)
+	modules = getModules(t, db)
+	parents := getDirectParents(modules["bla"])
+	assert.Equal(t, 1, len(parents))
+	assert.Equal(t, modules["bar"].Id, parents[0])
+	parents = getDirectParents(modules["blubb"])
+	assert.Equal(t, 1, len(parents))
+	assert.Equal(t, modules["bar"].Id, parents[0])
+	_, err = db.Exec(`SELECT delete_module($1)`, modules["foo"].Id)
+	assert.Nil(t, err)
+	_, err = db.Exec(`SELECT delete_module($1)`, modules["bar"].Id)
+	assert.Nil(t, err)
+	modules = getModules(t, db)
+	assert.Equal(t, 3, len(modules))
+	assert.Equal(t, modules["bla"].Id, getDirectParents(modules["blubb"])[0])
+	assert.Equal(t, fmt.Sprintf("/%s/%s/%s", modules["bla"].Id, modules["blubb"].Id, modules["bazz"].Id), modules["bazz"].paths[0])
+}
+
+func TestInsertModule(t *testing.T) {
+	db, err := dbConnect()
+	assert.Nil(t, err)
+	defer db.Close()
+	modules := getModules(t, db)
+	_, err = db.Exec(`SELECT insert_module($1,$2,$3,$4)`, uuid.NewV4().String(), modules["foo"].topicId, "hugo", modules["foo"].Id)
+	assert.Nil(t, err)
+	modules = getModules(t, db)
+	val, ok := modules["hugo"]
+	assert.True(t, ok)
+	assert.Equal(t, modules["foo"].Id, getDirectParents(val)[0])
+	assert.Equal(t, fmt.Sprintf("/%s/%s", modules["foo"].Id, val.Id), val.paths[0])
+	assert.Equal(t, modules["foo"].Id, getDirectParents(modules["bar"])[0])
+}
+
+func TestDeleteModuleTree(t *testing.T) {
+	db, err := dbConnect()
+	assert.Nil(t, err)
+	defer db.Close()
+	modules := getModules(t, db)
+	_, err = db.Exec(`SELECT insert_module($1,$2,$3,$4)`, uuid.NewV4().String(), modules["foo"].topicId, "hugo", modules["foo"].Id)
+	assert.Nil(t, err)
+	_, err = db.Exec(`SELECT delete_module_tree($1)`, modules["bar"].Id)
+	assert.Nil(t, err)
+	modules = getModules(t, db)
+	assert.Equal(t, 2, len(modules))
+	for _, v := range []string{"foo", "hugo"} {
+		_, ok := modules[v]
+		assert.True(t, ok)
+	}
+	assert.Equal(t, fmt.Sprintf("/%s/%s", modules["foo"].Id, modules["hugo"].Id), modules["hugo"].paths[0])
 }
 
 func getDirectParents(m module) []string {
@@ -98,16 +147,16 @@ func getDirectParents(m module) []string {
 }
 
 func getModules(t *testing.T, db *sql.DB) map[string]module {
-	rows, err := db.Query(`SELECT id,description,level,paths FROM module_trees`)
+	rows, err := db.Query(`SELECT id,description,level,paths, topic_id FROM module_trees`)
 	assert.Nil(t, err)
 	defer rows.Close()
-	var id, description, paths string
+	var id, description, paths, topicId string
 	var level int
 	var modules = make(map[string]module)
 	for rows.Next() {
-		err = rows.Scan(&id, &description, &level, &paths)
+		err = rows.Scan(&id, &description, &level, &paths, &topicId)
 		assert.Nil(t, err)
-		modules[description] = module{id, description, parseArray(paths), level}
+		modules[description] = module{id, description, parseArray(paths), topicId, level}
 	}
 	return modules
 }
@@ -116,6 +165,7 @@ type module struct {
 	Id          string
 	description string
 	paths       []string
+	topicId     string
 	level       int
 }
 
@@ -126,6 +176,9 @@ func parseArray(arr string) []string {
 
 func dbConnect() (*sql.DB, error) {
 	host := os.Getenv("PGHOST")
+	if host == "" {
+		host = "localhost"
+	}
 	_, err := exec.Command("./prepare_data.sh").Output()
 	if err != nil {
 		panic(err)

@@ -99,8 +99,8 @@ DECLARE
 topic_id UUID;
 BEGIN
   SET CONSTRAINTS ALL DEFERRED;
-  PERFORM increment_topic_version(modul_id);
-  delete from modules where  id in (select id from (select id, unnest (paths) as paths from module_trees where id = new_parent_id )t where paths like '%'||module_id||'%');
+  PERFORM increment_topic_version(module_id);
+  delete from modules where  id in (select id from (select id, unnest (paths) as paths from module_trees )t where paths like '%'||module_id||'%');
   REFRESH MATERIALIZED VIEW module_trees;
 END;
 $$ LANGUAGE plpgsql;
@@ -108,9 +108,9 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION insert_module(id UUID, topic_id UUID, description text,  parent_id UUID) 
 RETURNS void AS $$
 BEGIN
-  PERFORM increment_topic_version(id);
   insert into modules (id,topic_id,description,version) values(id,topic_id,description,1);
   insert into module_parents(child_id, parent_id) values(id,parent_id);
+  PERFORM increment_topic_version(id);
   REFRESH MATERIALIZED VIEW module_trees;
 END;
 $$ LANGUAGE plpgsql;
