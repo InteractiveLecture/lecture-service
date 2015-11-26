@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"github.com/richterrettich/lecture-service/models"
+	"github.com/richterrettich/lecture-service/modulepatch"
 	"github.com/richterrettich/lecture-service/paginator"
 )
 
@@ -23,7 +24,7 @@ type ModuleRepository interface {
 	GetOne(id string) ([]byte, error)
 	GetByLectureId(lectureId string, dr paginator.DepthRequest) ([]byte, error)
 	Create(*models.Module) error
-	GetChildren(id string) ([]byte, error)
+	ApplyTreePatch(*modulepatch.Patch) error
 }
 
 type ModuleRepositoryFactory interface {

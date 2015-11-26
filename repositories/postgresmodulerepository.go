@@ -41,6 +41,56 @@ func extractParts(patch *modulepatch.Operation) (string, []string, error) {
 	return id, parts, nil
 }
 
+func (r *PModuleRepo) ApplyTreePatch(treePatch *modulepatch.Patch) error {
+	tx, err := r.session.Begin()
+	if err != nil {
+		return err
+	}
+	_, err := tx.Exec(`SET TRANSACTION ISOLATION LEVEL SERIALIZABLE`)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+	_, err = tx.Exec(`SELECT check_version($1,$2)`, treePatch.LectureID, treePatch.Version)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+	for _, op := range treePatch.Operations {
+		endsWithSlash := strings.HasSuffix(op.From, "/")
+		from := strings.Trim(op.From, "/")
+		parts := strings.Split(from, "/")
+		if len(parts) == 1 { //Operation goes on the module directly. Only delete is allowed here.
+			if op.Type != modulepatch.REMOVE {
+				return InvalidPatchError{fmt.Sprintf("Can't do operation %s on module directly.", op.Type)}
+			}
+			if endsWithSlash {
+				_, err = tx.Exec(`SELECT delete_module_tree($1)`, parts[0])
+				if err != nil {
+					tx.Rollback()
+					return err
+				}
+			} else {
+				_, err = tx.Exec(`SELECT delete_module($1)`, parts[0])
+				if err != nil {
+					tx.Rollback()
+					return err
+				}
+			}
+		} else {
+
+		}
+	}
+}
+
+type CommandList interface {
+	ExecuteTransaction()
+}
+
+type PatchParser {
+	
+}
+
 /*
 func translateOperation(patchOperation *modulepatch.Operation) (*txn.Op, error) {
 	result := &txn.Op{}
@@ -53,10 +103,6 @@ func translateOperation(patchOperation *modulepatch.Operation) (*txn.Op, error) 
 	}
 	return result, nil
 }*/
-
-func (r *PModuleRepo) GetChildren(id string) ([]byte, error) {
-	return nil, nil
-}
 
 func prepare(stmt string, values ...interface{}) (string, []interface{}) {
 	parametersString := ""
