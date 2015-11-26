@@ -30,7 +30,7 @@ create table topics (
 
 create table modules(
   id UUID PRIMARY KEY,
-  topic_id UUID REFERENCES topics(id),
+  topic_id UUID REFERENCES topics(id) ON DELETE CASCADE,
   description TEXT NOT NULL,
   video_id UUID,
   script_id UUID,
@@ -40,20 +40,20 @@ create table modules(
 
 create table exercises (
   id UUID PRIMARY KEY,
-  module_id UUID REFERENCES modules(id),
+  module_id UUID REFERENCES modules(id) ON DELETE CASCADE,
   backend varchar(256) NOT NULL,
   version BIGINT NOT NULL CHECK(version > 0)
 );
 
 create table tasks (
   id UUID PRIMARY KEY,
-  exercise_id UUID REFERENCES exercises(id),
+  exercise_id UUID REFERENCES exercises(id) ON DELETE CASCADE,
   task text NOT NULL
 );
 
 create table hints (
   id UUID PRIMARY KEY,
-  exercise_id UUID REFERENCES exercises(id),
+  exercise_id UUID REFERENCES exercises(id) ON DELETE CASCADE,
   content TEXT NOT NULL,
   cost SMALLINT NOT NULL CHECK(cost > 0),
   version BIGINT NOT NULL CHECK(version > 0)
@@ -62,14 +62,14 @@ create table hints (
 
 
 create table topic_authority (
-  topic_id UUID references topics(id),
+  topic_id UUID references topics(id) ON DELETE CASCADE,
   user_id UUID,
   kind varchar(256)
 );
 
 create table topic_balances (
   user_id UUID,
-  topic_id UUID references topics(id),
+  topic_id UUID references topics(id) ON DELETE CASCADE,
   amount SMALLINT NOT NULL CHECK(amount >= 0),
   PRIMARY KEY(user_id,topic_id)
 );
@@ -77,7 +77,7 @@ create table topic_balances (
 
 create table hint_purchase_histories (
   user_id UUID,
-  hint_id UUID references hints(id),
+  hint_id UUID references hints(id) on delete cascade,
   amount SMALLINT NOT NULL CHECK(amount >= 0),
   time timestamp,
   PRIMARY KEY(user_id,hint_id)
@@ -86,7 +86,7 @@ create table hint_purchase_histories (
 
 create table module_progress_histories (
   user_id UUID,
-  module_id UUID references modules(id),
+  module_id UUID references modules(id) on delete cascade,
   reward SMALLINT NOT NULL CHECK(reward > 0),
   time timestamp,
   PRIMARY KEY (user_id,module_id)
@@ -95,7 +95,7 @@ create table module_progress_histories (
 
 create table exercise_progress_histories (
   user_id UUID,
-  exercise_id UUID references exercises(id),
+  exercise_id UUID references exercises(id) on delete cascade,
   reward SMALLINT NOT NULL CHECK(reward > 0 ),
   time timestamp,
   PRIMARY KEY (user_id,exercise_id)

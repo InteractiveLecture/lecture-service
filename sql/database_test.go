@@ -114,7 +114,12 @@ func TestInsertModule(t *testing.T) {
 	assert.Nil(t, err)
 	defer db.Close()
 	modules := getModules(t, db)
-	_, err = db.Exec(`SELECT insert_module($1,$2,$3,$4,$5,$6)`, uuid.NewV4().String(), modules["foo"].topicId, "hugo", uuid.NewV4(), uuid.NewV4(), modules["foo"].Id)
+	//	var parameters = make([]interface{}, 0)
+	parameters := []interface{}{uuid.NewV4().String(), modules["foo"].topicId, "hugo", uuid.NewV4(), uuid.NewV4(), modules["foo"].Id}
+	//	parameters = append(parameters,
+	//	_, err = db.Exec(`SELECT insert_module($1,$2,$3,$4,$5,$6)`, uuid.NewV4().String(), modules["foo"].topicId, "hugo", uuid.NewV4(), uuid.NewV4(), parents...)
+
+	_, err = db.Exec(`SELECT insert_module($1,$2,$3,$4,$5,$6)`, parameters...)
 	assert.Nil(t, err)
 	modules = getModules(t, db)
 	val, ok := modules["hugo"]

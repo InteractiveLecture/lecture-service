@@ -83,8 +83,8 @@ BEGIN
       select array_agg(row_to_json(exercises_aggregator)) from ( --aggregate exercises
         select ex.id, ex.backend, ex.version, (
           select array_agg(row_to_json(parts_aggregator)) from(
-              select ta.id, ta.task from tasks ta where ta.exercise_id = ex.id 
-            ) parts_aggregator
+            select ta.id, ta.task from tasks ta where ta.exercise_id = ex.id 
+          ) parts_aggregator
           ) as parts, (
           select array_agg(row_to_json(hints_aggregator)) from (
             select hi.id from hints hi where hi.exercise_id = ex.id
@@ -123,7 +123,7 @@ DECLARE
 result json;
 BEGIN
   select row_to_json(o1)  into result from(
-    select h.user_id, h.hint_id, h.amount,
+    select h.user_id, h.hint_id, h.amount, h.time 
     from hint_purchas_history h 
     where h.user_id = in_user_id
     LIMIT in_limit
@@ -136,19 +136,53 @@ $$ LANGUAGE plpgsql;
 
 
 
-DROP FUNCTION IF EXISTS get_module_progress_history(UUID,int,int);
-CREATE OR REPLACE FUNCTION get_module_progress_history(in_user_id UUID,in_limit int,in_skip int)  returns json AS $$
+DROP FUNCTION IF EXISTS get_module_progress(UUID,int,int);
+CREATE OR REPLACE FUNCTION get_module_progress(in_user_id UUID,in_limit int,in_skip int)  returns json AS $$
 DECLARE
 result json;
 BEGIN
   select row_to_json(o1)  into result from(
-    select h.user_id, h.module_id, h.reward, m.description
-    from hint_purchas_history h  inner join modules m
-    on h.module_id = m.module_id
-    where b.user_id = in_user_id
+    select h.user_id, h.module_id, h.reward, m.description, h.time
+    from module_progress_histories h inner join modules m on h.module_id = m.id
+    where h.user_id = in_user_id
     LIMIT in_limit
     OFFSET in_offset
   ) o1;
   return result;
 END;
 $$ LANGUAGE plpgsql;
+
+
+DROP FUNCTION IF EXISTS get_exercise_progress(UUID,int,int);
+CREATE OR REPLACE FUNCTION get_exercise_progress(in_user_id UUID,in_limit int,in_skip int)  returns json AS $$
+DECLARE
+result json;
+BEGIN
+  select row_to_json(o1)  into result from(
+    select h.user_id, h.exercise_id, h.reward,h.time 
+    from exercise_progress_histories h 
+    where h.user_id = in_user_id
+    LIMIT in_limit
+    OFFSET in_offset
+  ) o1;
+  return result;
+END;
+$$ LANGUAGE plpgsql;
+
+
+DROP FUNCTION IF EXISTS check_hint_purchase(UUID,UUID);
+CREATE OR REPLACE FUNCTION check_hint_purchase(in_user_id UUID,in_hint_id UUID)  returns json AS $$
+DECLARE
+result json;
+BEGIN
+  select row_to_json(o1)  into result from(
+    select h.user_id, h.hint_id, h.amount, h.time 
+    from hint_purchas_history h 
+    where h.user_id = in_user_id AND h.hint_id = in_hint_id
+  ) o1;
+  return result;
+END;
+$$ LANGUAGE plpgsql;
+
+
+

@@ -105,11 +105,16 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION insert_module(id UUID, topic_id UUID, description text,  video_id UUID, script_id UUID,parent_id UUID) 
+CREATE OR REPLACE FUNCTION insert_module(id UUID, topic_id UUID, description text,  video_id UUID, script_id UUID,parent_ids VARIADIC UUID[]) 
 RETURNS void AS $$
+DECLARE
+parent_id UUID;
 BEGIN
   insert into modules (id,topic_id,description,video_id,script_id,version) values(id,topic_id,description,video_id,script_id,1);
-  insert into module_parents(child_id, parent_id) values(id,parent_id);
+  foreach parent_id in ARRAY parent_ids
+  loop
+    insert into module_parents(child_id, parent_id) values(id,parent_id);
+  end loop;
   PERFORM increment_topic_version(id);
   REFRESH MATERIALIZED VIEW module_trees;
 END;

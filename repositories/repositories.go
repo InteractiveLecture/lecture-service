@@ -6,16 +6,13 @@ import (
 )
 
 type TopicRepository interface {
-	GetOne(id string) (*models.Topic, error)
-	GetAll(paginator paginator.PageRequest) ([]*models.Topic, error)
-	Create(topic *models.Topic) (id string, err error)
-	Delete(ids ...string) error
+	GetOne(id string) ([]byte, error)
+	GetAll(paginator paginator.PageRequest) ([]byte, error)
+	Create(*models.Topic) (id string, err error)
+	Delete(id string) error
 	Update(id string, newValues map[string]interface{}) error
-	Close()
-	AddOfficers(id string, officers ...string) error
-	AddAssistants(id string, assistants ...string) error
-	RemoveOfficers(id string, officers ...string) error
-	RemoveAssistants(id string, assistants ...string) error
+	AddAuthority(id, authority, kind string) error
+	RemoveAuthority(id string, authority string) error
 }
 
 type TopicRepositoryFactory interface {
@@ -23,11 +20,10 @@ type TopicRepositoryFactory interface {
 }
 
 type ModuleRepository interface {
-	GetOne(id string) (*models.Module, error)
-	GetByLectureId(lectureId string, dr paginator.DepthRequest) ([]*models.Module, error)
-	Create(module *models.Module) error
-	GetChildren(id string) ([]*models.Module, error)
-	Close()
+	GetOne(id string) ([]byte, error)
+	GetByLectureId(lectureId string, dr paginator.DepthRequest) ([]byte, error)
+	Create(*models.Module) error
+	GetChildren(id string) ([]byte, error)
 }
 
 type ModuleRepositoryFactory interface {

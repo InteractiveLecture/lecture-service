@@ -13,6 +13,8 @@ type Module struct {
 	TopicID         string `valid:"utfletternumeric,required"`
 	Recommendations []string
 	Parents         []string
+	VideoID         string
+	ScriptID        string
 	Depth           uint
 	LastModified    time.Time
 	Exercises       []Exercise
