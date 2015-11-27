@@ -6,7 +6,6 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/ant0ine/go-urlrouter"
 	"github.com/richterrettich/lecture-service/models"
 	"github.com/richterrettich/lecture-service/modulepatch"
 	"github.com/richterrettich/lecture-service/paginator"
@@ -76,27 +75,6 @@ func createCommand(command string, parameters ...interface{}) *command {
 	return &Command{command, parameters}
 }
 
-func buildAddModuleCommand(op *modulepatch.Operation, params map[string]string) *command {
-	value := op.Value.(map[string]interface{})
-	return createCommand(prepare("SELECT insert_module(%v)", value["id"], value["topic_id"], value["description"], value["video_id"], value["script_id"], value["topics"])), nil
-}
-
-func buildDeleteModuleTreeCommand(op *modulepatch.Operation, params map[string]string) *command {
-	return createCommand(prepare("SELECT delete_module(%v)", params["moduleId"]))
-}
-
-func buildDeleteModuleCommand(op *modulepatch.Operation, params map[string]string) *command {
-	return createCommand(prepare("SELECT delete_module_tree(%v)", params["moduleId"]))
-}
-
-func buildMoveModuleCommand(op *modulepatch.Operation, params map[string]string) *command {
-	return createCommand("SELECT move_module($1,null)", params["moduleId"])
-}
-
-func buildMoveModuleTreeCommand(op *modulepatch.Operation, params map[string]string) *command {
-	return createCommand(`SELECT move_module_tree($1,null)`, params["moduleId"])
-}
-
 func buildAddRecommendationCommand(op *modulepatch.Operation, params map[string]string) *command {
 	return createCommand(prepare("SELECT add_recommendations(%v)", params["moduleId"], op.Value))
 }
@@ -130,109 +108,44 @@ func buildRemoveExercise(op *modulepatch.Operation, params map[string]string) *c
 	return createCommand("delete from exercises where id = $1", params["exerciseId"])
 }
 
-func buildAddTask(op *modulepatch.Operation, params map[string]string) *command {
-	values := op.Value.(map[string]interface{})
-	return createCommand(prepare("insert into tasks values(%v)", values["id"], params["exerciseId"], values["task"]))
-}
-
-func buildDeleteTask(op *modulepatch.Operation, params map[string]string) *command {
-	return createCommand(prepare("delete from tasks where id =%v", params["taskId"]))
-}
-
-func buildAddHint(op *modulepatch.Operation, params map[string]string) *command {
-	return createCommand(prepare("delete from tasks where id =%v", params["taskId"]))
-}
-
-func ParsePatch(treePatch *modulepatch.Patch) (*CommandList, error) {
-	router := urlrouter.Router{
-		Routes: []urlrouter.Route{
-			urlrouter.Route{
-				PathExp: "/",
-				Dest:    buildAddModuleCommand,
+func parsemodulepatch(treepatch *modulepatch.patch) (*commandlist, error) {
+	router := urlrouter.router{
+		routes: []urlrouter.route{
+			urlrouter.route{
+				pathexp: "/recommendations",
+				dest:    buildaddrecommandationcommand,
 			},
-			urlrouter.Route{
-				PathExp: "/:moduleId/", //watch the slash!
-				Dest:    buildDeleteModuleTreeCommand,
+			urlrouter.route{
+				pathexp: "/recommendations/:recommendationid",
+				dest:    buildremoverecommendation,
 			},
-			urlrouter.Route{
-				PathExp: "/:moduleId",
-				Dest:    buildDeleteModuleCommand,
+			urlrouter.route{
+				pathexp: "/video",
+				dest:    buildaddvideo,
 			},
-			urlrouter.Route{
-				PathExp: "/:moduleId/parents",
-				Dest:    buildMoveModuleCommand,
+			urlrouter.route{
+				pathexp: "/video/:videoid",
+				dest:    buildremovevideo,
 			},
-			urlrouter.Route{
-				PathExp: "/:moduleId/parents/",
-				Dest:    buildMoveModuleTreeCommand,
+			urlrouter.route{
+				pathexp: "/script",
+				dest:    buildaddscript,
 			},
-			urlrouter.Route{
-				PathExp: "/:moduleId/recommendations",
-				Dest:    buildAddRecommandationCommand,
+			urlrouter.route{
+				pathexp: "/script/:scriptid",
+				dest:    buildremovescript,
 			},
-			urlrouter.Route{
-				PathExp: "/:moduleId/recommendations/:recommendationId",
-				Dest:    buildRemoveRecommendation,
+			urlrouter.route{
+				pathexp: "/exercises",
+				dest:    buildaddexercise,
 			},
-			urlrouter.Route{
-				PathExp: "/:moduleId/video",
-				Dest:    buildAddVideo,
-			},
-			urlrouter.Route{
-				PathExp: "/:moduleId/video/:videoId",
-				Dest:    buildRemoveVideo,
-			},
-			urlrouter.Route{
-				PathExp: "/:moduleId/script",
-				Dest:    buildAddScript,
-			},
-			urlrouter.Route{
-				PathExp: "/:moduleId/script/:scriptId",
-				Dest:    buildRemoveScript,
-			},
-			urlrouter.Route{
-				PathExp: "/:moduleId/exercises",
-				Dest:    buildAddExercise,
-			},
-			urlrouter.Route{
-				PathExp: "/:moduleId/exercises/:exerciseId",
-				Dest:    buildRemoveExercise,
-			}, urlrouter.Route{
-				PathExp: "/:moduleId/exercises/:exerciseId/hints",
-				Dest:    buildAddHint,
-			}, urlrouter.Route{
-				PathExp: "/:moduleId/exercises/:exerciseId/hints/:hintId",
-				Dest:    buildRemoveHint,
-			}, urlrouter.Route{
-				PathExp: "/:moduleId/exercises/:exerciseId/tasks",
-				Dest:    buildAddTask,
-			},
-			urlrouter.Route{
-				PathExp: "/:moduleId/exercises/:exerciseId/tasks/:taskId",
-				Dest:    buildRemoveTask,
+			urlrouter.route{
+				pathexp: "/exercises/:exerciseid",
+				dest:    buildaddexercise,
 			},
 		},
 	}
-	result := &CommandList{}
-	result.AddCommand(`SET TRANSACTION ISOLATION LEVEL SERIALIZABLE`)
-	result.AddCommand(`SELECT check_version($1,$2)`, treePatch.LectureID, treePatch.Version)
-	for _, op := range treePatch.Operations {
-	}
-	return result, nil
 }
-
-/*
-func translateOperation(patchOperation *modulepatch.Operation) (*txn.Op, error) {
-	result := &txn.Op{}
-	id, parts, err := extractParts(patchOperation)
-	if err != nil {
-		return nil, err
-	}
-	result.Id = id
-	switch patchOperation.Type {
-	}
-	return result, nil
-}*/
 
 func prepare(stmt string, values ...interface{}) (string, []interface{}) {
 	parametersString := ""
