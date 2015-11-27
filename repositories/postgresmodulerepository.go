@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/ant0ine/go-urlrouter"
 	"github.com/richterrettich/lecture-service/models"
 	"github.com/richterrettich/lecture-service/modulepatch"
 	"github.com/richterrettich/lecture-service/paginator"
@@ -28,7 +29,7 @@ type InvalidPatchError struct {
 	Message string
 }
 
-func (e *InvalidPatchError) Error() string {
+func (e InvalidPatchError) Error() string {
 	return e.Message
 }
 
@@ -42,53 +43,182 @@ func extractParts(patch *modulepatch.Operation) (string, []string, error) {
 }
 
 func (r *PModuleRepo) ApplyTreePatch(treePatch *modulepatch.Patch) error {
-	tx, err := r.session.Begin()
-	if err != nil {
-		return err
-	}
-	_, err := tx.Exec(`SET TRANSACTION ISOLATION LEVEL SERIALIZABLE`)
-	if err != nil {
-		tx.Rollback()
-		return err
-	}
-	_, err = tx.Exec(`SELECT check_version($1,$2)`, treePatch.LectureID, treePatch.Version)
-	if err != nil {
-		tx.Rollback()
-		return err
-	}
-	for _, op := range treePatch.Operations {
-		endsWithSlash := strings.HasSuffix(op.From, "/")
-		from := strings.Trim(op.From, "/")
-		parts := strings.Split(from, "/")
-		if len(parts) == 1 { //Operation goes on the module directly. Only delete is allowed here.
-			if op.Type != modulepatch.REMOVE {
-				return InvalidPatchError{fmt.Sprintf("Can't do operation %s on module directly.", op.Type)}
-			}
-			if endsWithSlash {
-				_, err = tx.Exec(`SELECT delete_module_tree($1)`, parts[0])
-				if err != nil {
-					tx.Rollback()
-					return err
-				}
-			} else {
-				_, err = tx.Exec(`SELECT delete_module($1)`, parts[0])
-				if err != nil {
-					tx.Rollback()
-					return err
-				}
-			}
-		} else {
+	return nil
+}
 
+type commandList struct {
+	commands []command
+}
+
+type command struct {
+	statement  string
+	parameters []interface{}
+}
+
+func (c *command) execute(tx *sql.Tx) error {
+	_, err := tx.Exec(c.statement, c.parameters)
+	return err
+}
+
+func (c *commandList) executeCommands(db *sql.DB) error {
+	tx, err := db.Begin()
+	for _, com := range c.commands {
+		err = com.execute(tx)
+		if err != nil {
+			tx.Rollback()
+			return err
 		}
 	}
+	return tx.Commit()
 }
 
-type CommandList interface {
-	ExecuteTransaction()
+func createCommand(command string, parameters ...interface{}) *command {
+	return &Command{command, parameters}
 }
 
-type PatchParser {
-	
+func buildAddModuleCommand(op *modulepatch.Operation, params map[string]string) *command {
+	value := op.Value.(map[string]interface{})
+	return createCommand(prepare("SELECT insert_module(%v)", value["id"], value["topic_id"], value["description"], value["video_id"], value["script_id"], value["topics"])), nil
+}
+
+func buildDeleteModuleTreeCommand(op *modulepatch.Operation, params map[string]string) *command {
+	return createCommand(prepare("SELECT delete_module(%v)", params["moduleId"]))
+}
+
+func buildDeleteModuleCommand(op *modulepatch.Operation, params map[string]string) *command {
+	return createCommand(prepare("SELECT delete_module_tree(%v)", params["moduleId"]))
+}
+
+func buildMoveModuleCommand(op *modulepatch.Operation, params map[string]string) *command {
+	return createCommand("SELECT move_module($1,null)", params["moduleId"])
+}
+
+func buildMoveModuleTreeCommand(op *modulepatch.Operation, params map[string]string) *command {
+	return createCommand(`SELECT move_module_tree($1,null)`, params["moduleId"])
+}
+
+func buildAddRecommendationCommand(op *modulepatch.Operation, params map[string]string) *command {
+	return createCommand(prepare("SELECT add_recommendations(%v)", params["moduleId"], op.Value))
+}
+
+func buildRemoveRecommendation(op *modulepatch.Operation, params map[string]string) *command {
+	return createCommand(prepare("SELECT remove_recommendation(%v)", params["moduleId"], params["recommendationId"]))
+}
+
+func buildAddVideo(op *modulepatch.Operation, params map[string]string) *command {
+	return createCommand(`SELECT add_video($1,$2)`, params["moduleId"], params["videoId"])
+}
+
+func buildRemoveVideo(op *modulepatch.Operation, params map[string]string) *command {
+	return createCommand(`SELECT remove_video($1,$2)`, params["moduleId"], params["videoId"])
+}
+
+func buildAddScript(op *modulepatch.Operation, params map[string]string) *command {
+	return createCommand(`SELECT add_script($1,$2)`, params["moduleId"], params["scriptId"])
+}
+
+func buildRemoveScript(op *modulepatch.Operation, params map[string]string) *command {
+	return createCommand(`SELECT remove_script($1,$2)`, params["moduleId"], params["scriptId"])
+}
+
+func buildAddExercise(op *modulepatch.Operation, params map[string]string) *command {
+	value := op.Value.(map[string]interface{})
+	return createCommand(prepare("insert into exercises values (%v)", value["id"], params["moduleId"], value["backend"]))
+}
+
+func buildRemoveExercise(op *modulepatch.Operation, params map[string]string) *command {
+	return createCommand("delete from exercises where id = $1", params["exerciseId"])
+}
+
+func buildAddTask(op *modulepatch.Operation, params map[string]string) *command {
+	values := op.Value.(map[string]interface{})
+	return createCommand(prepare("insert into tasks values(%v)", values["id"], params["exerciseId"], values["task"]))
+}
+
+func buildDeleteTask(op *modulepatch.Operation, params map[string]string) *command {
+	return createCommand(prepare("delete from tasks where id =%v", params["taskId"]))
+}
+
+func buildAddHint(op *modulepatch.Operation, params map[string]string) *command {
+	return createCommand(prepare("delete from tasks where id =%v", params["taskId"]))
+}
+
+func ParsePatch(treePatch *modulepatch.Patch) (*CommandList, error) {
+	router := urlrouter.Router{
+		Routes: []urlrouter.Route{
+			urlrouter.Route{
+				PathExp: "/",
+				Dest:    buildAddModuleCommand,
+			},
+			urlrouter.Route{
+				PathExp: "/:moduleId/", //watch the slash!
+				Dest:    buildDeleteModuleTreeCommand,
+			},
+			urlrouter.Route{
+				PathExp: "/:moduleId",
+				Dest:    buildDeleteModuleCommand,
+			},
+			urlrouter.Route{
+				PathExp: "/:moduleId/parents",
+				Dest:    buildMoveModuleCommand,
+			},
+			urlrouter.Route{
+				PathExp: "/:moduleId/parents/",
+				Dest:    buildMoveModuleTreeCommand,
+			},
+			urlrouter.Route{
+				PathExp: "/:moduleId/recommendations",
+				Dest:    buildAddRecommandationCommand,
+			},
+			urlrouter.Route{
+				PathExp: "/:moduleId/recommendations/:recommendationId",
+				Dest:    buildRemoveRecommendation,
+			},
+			urlrouter.Route{
+				PathExp: "/:moduleId/video",
+				Dest:    buildAddVideo,
+			},
+			urlrouter.Route{
+				PathExp: "/:moduleId/video/:videoId",
+				Dest:    buildRemoveVideo,
+			},
+			urlrouter.Route{
+				PathExp: "/:moduleId/script",
+				Dest:    buildAddScript,
+			},
+			urlrouter.Route{
+				PathExp: "/:moduleId/script/:scriptId",
+				Dest:    buildRemoveScript,
+			},
+			urlrouter.Route{
+				PathExp: "/:moduleId/exercises",
+				Dest:    buildAddExercise,
+			},
+			urlrouter.Route{
+				PathExp: "/:moduleId/exercises/:exerciseId",
+				Dest:    buildRemoveExercise,
+			}, urlrouter.Route{
+				PathExp: "/:moduleId/exercises/:exerciseId/hints",
+				Dest:    buildAddHint,
+			}, urlrouter.Route{
+				PathExp: "/:moduleId/exercises/:exerciseId/hints/:hintId",
+				Dest:    buildRemoveHint,
+			}, urlrouter.Route{
+				PathExp: "/:moduleId/exercises/:exerciseId/tasks",
+				Dest:    buildAddTask,
+			},
+			urlrouter.Route{
+				PathExp: "/:moduleId/exercises/:exerciseId/tasks/:taskId",
+				Dest:    buildRemoveTask,
+			},
+		},
+	}
+	result := &CommandList{}
+	result.AddCommand(`SET TRANSACTION ISOLATION LEVEL SERIALIZABLE`)
+	result.AddCommand(`SELECT check_version($1,$2)`, treePatch.LectureID, treePatch.Version)
+	for _, op := range treePatch.Operations {
+	}
+	return result, nil
 }
 
 /*
