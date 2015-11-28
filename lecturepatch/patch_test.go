@@ -1,4 +1,4 @@
-package modulepatch
+package lecturepatch
 
 import (
 	"strings"

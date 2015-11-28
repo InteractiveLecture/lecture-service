@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/ant0ine/go-urlrouter"
 	"github.com/richterrettich/lecture-service/modulepatch"
 )
 
@@ -46,7 +45,7 @@ func createCommand(c string, parameters ...interface{}) *command {
 	return &command{c, parameters}
 }
 
-type CommandBuilder func(id string, op *modulepatch.Operation, params map[string]string) command
+type CommandGenerator func(id string, op *modulepatch.Operation, params map[string]string) command
 
 func (c *commandList) translatePatch(id string, router *urlrouter.Router, patch *modulepatch.Patch) error {
 	for _, op := range patch.Operations {

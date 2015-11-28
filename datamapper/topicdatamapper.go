@@ -5,76 +5,12 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/ant0ine/go-urlrouter"
 	_ "github.com/lib/pq"
 	"github.com/satori/go.uuid"
 
 	"github.com/richterrettich/lecture-service/models"
-	"github.com/richterrettich/lecture-service/modulepatch"
 	"github.com/richterrettich/lecture-service/paginator"
 )
-
-func buildAddModuleCommand(op *modulepatch.Operation, params map[string]string) *command {
-	value := op.Value.(map[string]interface{})
-	return createCommand(prepare("SELECT insert_module(%v)", value["id"], value["topic_id"], value["description"], value["video_id"], value["script_id"], value["topics"])), nil
-}
-
-func buildDeleteModuleTreeCommand(op *modulepatch.Operation, params map[string]string) *command {
-	return createCommand(prepare("SELECT delete_module(%v)", params["moduleId"]))
-}
-
-func buildDeleteModuleCommand(op *modulepatch.Operation, params map[string]string) *command {
-	return createCommand(prepare("SELECT delete_module_tree(%v)", params["moduleId"]))
-}
-
-func buildMoveModuleCommand(op *modulepatch.Operation, params map[string]string) *command {
-	return createCommand("SELECT move_module($1,null)", params["moduleId"])
-}
-
-func buildMoveModuleTreeCommand(op *modulepatch.Operation, params map[string]string) *command {
-	return createCommand(`SELECT move_module_tree($1,null)`, params["moduleId"])
-}
-
-func ParseTopicPatch(treePatch *modulepatch.Patch) (*CommandList, error) {
-	router := urlrouter.Router{
-		Routes: []urlrouter.Route{
-			urlrouter.Route{
-				PathExp: "/description",
-				Dest:    buildTopicDescriptionCommand,
-			},
-			urlrouter.Route{
-				PathExp: "/assistants",
-				Dest:    buildAddAssistantCommand,
-			},
-			urlrouter.Route{
-				PathExp: "/assistants/:assistantId",
-				Dest:    buildremoveAssistantCommand,
-			},
-			urlrouter.Route{
-				PathExp: "/modules/:moduleId/tree",
-				Dest:    buildDeleteModuleTreeCommand,
-			},
-			urlrouter.Route{
-				PathExp: "/modules/:moduleId",
-				Dest:    buildDeleteModuleCommand,
-			},
-			urlrouter.Route{
-				PathExp: "/modules/:moduleId/parents",
-				Dest:    buildMoveModuleCommand,
-			},
-			urlrouter.Route{
-				PathExp: "/modules/:moduleId/parents/tree",
-				Dest:    buildMoveModuleTreeCommand,
-			},
-		},
-	}
-	result := &CommandList{}
-	result.AddCommand(`SET TRANSACTION ISOLATION LEVEL SERIALIZABLE`)
-	result.AddCommand(`SELECT check_version($1,$2)`, treePatch.LectureID, treePatch.Version)
-	for _, op := range treePatch.Operations {
-	}
-	return result, nil
-}
 
 type PTRepoFactory struct {
 	db *sql.DB
