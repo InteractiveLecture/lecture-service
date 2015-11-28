@@ -1,78 +1,23 @@
-package repositories
+package datamapper
 
 import (
-	"database/sql"
 	"fmt"
 	"reflect"
 	"strings"
 
+	"github.com/ant0ine/go-urlrouter"
 	"github.com/richterrettich/lecture-service/models"
 	"github.com/richterrettich/lecture-service/modulepatch"
 	"github.com/richterrettich/lecture-service/paginator"
 	"github.com/satori/go.uuid"
 )
 
-type PModuleRepoFactory struct {
-	DB *sql.DB
-}
-
-type PModuleRepo struct {
-	session *sql.DB
-}
-
-func (f *PModuleRepoFactory) CreateRepository() ModuleRepository {
-	return &PModuleRepo{f.DB}
-}
-
-type InvalidPatchError struct {
-	Message string
-}
-
-func (e InvalidPatchError) Error() string {
-	return e.Message
-}
-
-func extractParts(patch *modulepatch.Operation) (string, []string, error) {
-	parts := strings.Split(patch.Path, "/")
-	if len(parts) == 0 || parts[0] != "" {
-		return "", nil, &InvalidPatchError{fmt.Sprintf("Path %s is invalid.", patch.Path)}
+func (mapper *Datamapper) ApplyModulePatch(id string, patch *modulepatch.Patch, compiler PatchCompiler) error {
+	commands, err := compiler(id, patch)
+	if err != nil {
+		return err
 	}
-	id, parts := parts[1], parts[2:]
-	return id, parts, nil
-}
-
-func (r *PModuleRepo) ApplyTreePatch(treePatch *modulepatch.Patch) error {
-	return nil
-}
-
-type commandList struct {
-	commands []command
-}
-
-type command struct {
-	statement  string
-	parameters []interface{}
-}
-
-func (c *command) execute(tx *sql.Tx) error {
-	_, err := tx.Exec(c.statement, c.parameters)
-	return err
-}
-
-func (c *commandList) executeCommands(db *sql.DB) error {
-	tx, err := db.Begin()
-	for _, com := range c.commands {
-		err = com.execute(tx)
-		if err != nil {
-			tx.Rollback()
-			return err
-		}
-	}
-	return tx.Commit()
-}
-
-func createCommand(command string, parameters ...interface{}) *command {
-	return &Command{command, parameters}
+	return commands.executeCommands(mapper.db)
 }
 
 func buildAddRecommendationCommand(op *modulepatch.Operation, params map[string]string) *command {
@@ -108,42 +53,54 @@ func buildRemoveExercise(op *modulepatch.Operation, params map[string]string) *c
 	return createCommand("delete from exercises where id = $1", params["exerciseId"])
 }
 
-func parsemodulepatch(treepatch *modulepatch.patch) (*commandlist, error) {
-	router := urlrouter.router{
-		routes: []urlrouter.route{
-			urlrouter.route{
+func parseModulePatch(id string, treepatch *modulepatch.Patch) (*commandList, error) {
+	result := commandlist{}
+	router := urlrouter.Router{
+		Routes: []urlrouter.Route{
+			urlrouter.Route{
 				pathexp: "/recommendations",
 				dest:    buildaddrecommandationcommand,
 			},
-			urlrouter.route{
+			urlrouter.Route{
 				pathexp: "/recommendations/:recommendationid",
 				dest:    buildremoverecommendation,
 			},
-			urlrouter.route{
+			urlrouter.Route{
 				pathexp: "/video",
 				dest:    buildaddvideo,
 			},
-			urlrouter.route{
+			urlrouter.Route{
 				pathexp: "/video/:videoid",
 				dest:    buildremovevideo,
 			},
-			urlrouter.route{
+			urlrouter.Route{
 				pathexp: "/script",
 				dest:    buildaddscript,
 			},
-			urlrouter.route{
+			urlrouter.Route{
 				pathexp: "/script/:scriptid",
 				dest:    buildremovescript,
 			},
-			urlrouter.route{
+			urlrouter.Route{
 				pathexp: "/exercises",
 				dest:    buildaddexercise,
 			},
-			urlrouter.route{
+			urlrouter.Route{
 				pathexp: "/exercises/:exerciseid",
 				dest:    buildaddexercise,
 			},
 		},
+	}
+	for _, op := range treepatch.Operations {
+		route, params, err := router.FindRoute(op.Path)
+		if err != nil {
+			return err
+		}
+		if route == nil {
+			return InvalidPatchError{"Operation not supported"}
+		}
+		commandBuilder := route.Dest.(CommandBuilder)
+		result = append(result, commandBuilder(id, op, params))
 	}
 }
 
@@ -176,12 +133,6 @@ func (r *PModuleRepo) Create(m *models.Module) error {
 	}
 	_, err := r.session.Exec(prepare("SELECT insert_module(%s)", m.ID, m.TopicID, m.Description, m.VideoID, m.ScriptID, m.Parents))
 	return err
-}
-
-func rowToBytes(row *sql.Row) ([]byte, error) {
-	var result = make([]byte, 0)
-	err := row.Scan(result)
-	return result, err
 }
 
 func (r *PModuleRepo) GetOne(id string) ([]byte, error) {
