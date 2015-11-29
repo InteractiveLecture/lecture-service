@@ -47,19 +47,18 @@ create table exercises (
 
 create table tasks (
   exercise_id UUID REFERENCES exercises(id) ON DELETE CASCADE,
-  task text NOT NULL
+  content text NOT NULL,
   position int NOT NULL CHECK(position > 0),
-  PRIMARY KEY(exercise_id, poisition)
+  PRIMARY KEY(exercise_id, position)
 );
 
 create table hints (
-  id UUID PRIMARY KEY,
   exercise_id UUID REFERENCES exercises(id) ON DELETE CASCADE,
+  id UUID PRIMARY KEY,
   content TEXT NOT NULL,
   cost SMALLINT NOT NULL CHECK(cost > 0),
-  version BIGINT NOT NULL CHECK(version > 0),
   position int NOT NULL CHECK(position > 0),
-  CONSTRAINT u_constraint UNIQUE (id, position)
+  UNIQUE(exercise_id, position)
 );
 
 

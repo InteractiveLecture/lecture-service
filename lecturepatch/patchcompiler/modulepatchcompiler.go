@@ -25,7 +25,7 @@ func (compiler ModulePatchCompiler) Compile(id string, patch *lecturepatch.Patch
 				Dest:    CommandGenerator(generateReplaceDescription),
 			},
 			urlrouter.Route{
-				PathExp: "/recommendations/:recommendationid",
+				PathExp: "/recommendations/:recommendationId",
 				Dest:    CommandGenerator(generateRemoveRecommendation),
 			},
 			urlrouter.Route{
@@ -33,7 +33,7 @@ func (compiler ModulePatchCompiler) Compile(id string, patch *lecturepatch.Patch
 				Dest:    CommandGenerator(generateAddVideo),
 			},
 			urlrouter.Route{
-				PathExp: "/video/:videoid",
+				PathExp: "/video/:videoId",
 				Dest:    CommandGenerator(generateRemoveVideo),
 			},
 			urlrouter.Route{
@@ -41,7 +41,7 @@ func (compiler ModulePatchCompiler) Compile(id string, patch *lecturepatch.Patch
 				Dest:    CommandGenerator(generateAddScript),
 			},
 			urlrouter.Route{
-				PathExp: "/script/:scriptid",
+				PathExp: "/script/:scriptId",
 				Dest:    CommandGenerator(generateRemoveScript),
 			},
 			urlrouter.Route{
@@ -49,13 +49,13 @@ func (compiler ModulePatchCompiler) Compile(id string, patch *lecturepatch.Patch
 				Dest:    CommandGenerator(generateAddExercise),
 			},
 			urlrouter.Route{
-				PathExp: "/exercises/:exerciseid",
+				PathExp: "/exercises/:exerciseId",
 				Dest:    CommandGenerator(generateRemoveExercise),
 			},
 		},
 	}
-	result.Commands = append(result.Commands, createCommand(`SET TRANSACTION ISOLATION LEVEL SERIALIZABLE`))
-	result.Commands = append(result.Commands, createCommand(`SELECT check_module_version($1,$2)`, id, patch.Version))
+	result.AddCommand(`SET TRANSACTION ISOLATION LEVEL SERIALIZABLE`)
+	result.AddCommand(`SELECT check_module_version($1,$2)`, id, patch.Version)
 	err := router.Start()
 	if err != nil {
 		return nil, err
@@ -64,6 +64,7 @@ func (compiler ModulePatchCompiler) Compile(id string, patch *lecturepatch.Patch
 	if err != nil {
 		return nil, err
 	}
+	result.AddCommand("SELECT increment_module_version($1)", id)
 	return result, nil
 }
 
@@ -71,49 +72,49 @@ func generateReplaceDescription(id string, op *lecturepatch.Operation, params ma
 	if op.Type != lecturepatch.REPLACE {
 		return nil, InvalidPatchError{"Operation Not allowed here."}
 	}
-	return createCommand("SELECT update_module_description($1,$2)", id, op.Value), nil
+	return createCommand("SELECT replace_module_description($1,$2)", id, op.Value), nil
 }
 
 func generateAddRecommendation(id string, op *lecturepatch.Operation, params map[string]string) (*command, error) {
 	if op.Type != lecturepatch.ADD {
 		return nil, InvalidPatchError{"Operation Not allowed here."}
 	}
-	return createCommand("SELECT add_recommendations($1,$2)", id, op.Value), nil
+	return createCommand("SELECT add_module_recommendation($1,$2)", id, op.Value), nil
 }
 
 func generateRemoveRecommendation(id string, op *lecturepatch.Operation, params map[string]string) (*command, error) {
 	if op.Type != lecturepatch.REMOVE {
 		return nil, InvalidPatchError{"Operation Not allowed here."}
 	}
-	return createCommand("SELECT remove_recommendation($1,$2)", id, params["recommendationId"]), nil
+	return createCommand("SELECT remove_module_recommendation($1,$2)", id, params["recommendationId"]), nil
 }
 
 func generateAddVideo(id string, op *lecturepatch.Operation, params map[string]string) (*command, error) {
 	if op.Type != lecturepatch.ADD {
 		return nil, InvalidPatchError{"Operation Not allowed here."}
 	}
-	return createCommand(`SELECT add_video($1,$2)`, id, params["videoId"]), nil
+	return createCommand(`SELECT add_module_video($1,$2)`, id, op.Value), nil
 }
 
 func generateRemoveVideo(id string, op *lecturepatch.Operation, params map[string]string) (*command, error) {
 	if op.Type != lecturepatch.REMOVE {
 		return nil, InvalidPatchError{"Operation Not allowed here."}
 	}
-	return createCommand(`SELECT remove_video($1,$2)`, id, params["videoId"]), nil
+	return createCommand(`SELECT remove_module_video($1,$2)`, id, params["videoId"]), nil
 }
 
 func generateAddScript(id string, op *lecturepatch.Operation, params map[string]string) (*command, error) {
 	if op.Type != lecturepatch.ADD {
 		return nil, InvalidPatchError{"Operation Not allowed here."}
 	}
-	return createCommand(`SELECT add_script($1,$2)`, id, params["scriptId"]), nil
+	return createCommand(`SELECT add_module_script($1,$2)`, id, op.Value), nil
 }
 
 func generateRemoveScript(id string, op *lecturepatch.Operation, params map[string]string) (*command, error) {
 	if op.Type != lecturepatch.REMOVE {
 		return nil, InvalidPatchError{"Operation Not allowed here."}
 	}
-	return createCommand(`SELECT remove_script($1,$2)`, id, params["scriptId"]), nil
+	return createCommand(`SELECT remove_module_script($1,$2)`, id, params["scriptId"]), nil
 }
 
 func generateAddExercise(id string, op *lecturepatch.Operation, params map[string]string) (*command, error) {
@@ -121,12 +122,13 @@ func generateAddExercise(id string, op *lecturepatch.Operation, params map[strin
 		return nil, InvalidPatchError{"Operation Not allowed here."}
 	}
 	value := op.Value.(map[string]interface{})
-	return createCommand(prepare("SELECT insert_exercise(%v)", value["id"], id, value["backend"])), nil
+	stmt, par := prepare("SELECT add_exercise(%v)", value["id"], id, value["backend"])
+	return createCommand(stmt, par...), nil
 }
 
 func generateRemoveExercise(id string, op *lecturepatch.Operation, params map[string]string) (*command, error) {
 	if op.Type != lecturepatch.REMOVE {
 		return nil, InvalidPatchError{"Operation Not allowed here."}
 	}
-	return createCommand("SELECT delete_exercise($1,$2)", id, params["exerciseId"]), nil
+	return createCommand("SELECT remove_exercise($1,$2)", id, params["exerciseId"]), nil
 }

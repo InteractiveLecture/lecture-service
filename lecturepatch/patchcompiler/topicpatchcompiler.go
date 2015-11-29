@@ -16,35 +16,38 @@ func generateAddModule(id string, op *lecturepatch.Operation, params map[string]
 		return nil, InvalidPatchError{"Operation not allowed here"}
 	}
 	value := op.Value.(map[string]interface{})
-	return createCommand(prepare("SELECT insert_module(%v)", value["id"], id, value["description"], value["video_id"], value["script_id"], value["parents"])), nil
+	stmt, parameters := prepare("SELECT insert_module(%v)", value["id"], id, value["description"], value["video_id"], value["script_id"], value["parents"])
+	return createCommand(stmt, parameters...), nil
 }
 
-func generateDeleteModuleTree(id string, op *lecturepatch.Operation, params map[string]string) (*command, error) {
+func generateRemoveModuleTree(id string, op *lecturepatch.Operation, params map[string]string) (*command, error) {
 	if op.Type != lecturepatch.REMOVE {
 		return nil, InvalidPatchError{"Operation not allowed here"}
 	}
-	return createCommand(prepare("SELECT delete_module(%v)", id, params["moduleId"])), nil
+	return createCommand("SELECT remove_module_tree($1,$2)", id, params["moduleId"]), nil
 }
 
-func generateDeleteModule(id string, op *lecturepatch.Operation, params map[string]string) (*command, error) {
+func generateRemoveModule(id string, op *lecturepatch.Operation, params map[string]string) (*command, error) {
 	if op.Type != lecturepatch.REMOVE {
 		return nil, InvalidPatchError{"Operation not allowed here"}
 	}
-	return createCommand(prepare("SELECT delete_module_tree(%v)", id, params["moduleId"])), nil
+	return createCommand("SELECT remove_module($1,$2)", id, params["moduleId"]), nil
 }
 
 func generateMoveModule(id string, op *lecturepatch.Operation, params map[string]string) (*command, error) {
 	if op.Type != lecturepatch.REPLACE {
 		return nil, InvalidPatchError{"Operation not allowed here"}
 	}
-	return createCommand(prepare("SELECT move_module(%v)", id, params["moduleId"])), nil
+	stmt, parameters := prepare("SELECT move_module(%v)", id, params["moduleId"], op.Value)
+	return createCommand(stmt, parameters...), nil
 }
 
 func generateMoveModuleTree(id string, op *lecturepatch.Operation, params map[string]string) (*command, error) {
 	if op.Type != lecturepatch.REPLACE {
 		return nil, InvalidPatchError{"Operation not allowed here"}
 	}
-	return createCommand(prepare("SELECT move_module_tree(%v)", id, params["moduleId"])), nil
+	stmt, parameters := prepare("SELECT move_module_tree(%v)", id, params["moduleId"], op.Value)
+	return createCommand(stmt, parameters...), nil
 }
 
 func generateReplaceTopicDescription(id string, op *lecturepatch.Operation, params map[string]string) (*command, error) {
@@ -58,14 +61,14 @@ func generateAddAssistant(id string, op *lecturepatch.Operation, params map[stri
 	if op.Type != lecturepatch.ADD {
 		return nil, InvalidPatchError{"Operation not allowed here"}
 	}
-	return createCommand("SELECT add_assistant($1,$2)", id, op.Value, "ASSISTANT"), nil
+	return createCommand("SELECT add_assistant($1,$2,$3)", id, op.Value, "ASSISTANT"), nil
 }
 
 func generateRemoveAssistant(id string, op *lecturepatch.Operation, params map[string]string) (*command, error) {
 	if op.Type != lecturepatch.REMOVE {
 		return nil, InvalidPatchError{"Operation not allowed here"}
 	}
-	return createCommand("SELECT remove_assistant($1,$2)", id, op.Value), nil
+	return createCommand("SELECT remove_assistant($1,$2)", id, params["assistantId"]), nil
 }
 
 func (c *TopicPatchCompiler) Compile(id string, treePatch *lecturepatch.Patch) (*CommandList, error) {
@@ -89,11 +92,11 @@ func (c *TopicPatchCompiler) Compile(id string, treePatch *lecturepatch.Patch) (
 			},
 			urlrouter.Route{
 				PathExp: "/modules/:moduleId/tree",
-				Dest:    CommandGenerator(generateDeleteModuleTree),
+				Dest:    CommandGenerator(generateRemoveModuleTree),
 			},
 			urlrouter.Route{
 				PathExp: "/modules/:moduleId",
-				Dest:    CommandGenerator(generateDeleteModule),
+				Dest:    CommandGenerator(generateRemoveModule),
 			},
 			urlrouter.Route{
 				PathExp: "/modules/:moduleId/parents",
@@ -106,8 +109,8 @@ func (c *TopicPatchCompiler) Compile(id string, treePatch *lecturepatch.Patch) (
 		},
 	}
 	result := NewCommandList()
-	result.Commands = append(result.Commands, createCommand(`SET TRANSACTION ISOLATION LEVEL SERIALIZABLE`))
-	result.Commands = append(result.Commands, createCommand(`SELECT check_topic_version($1,$2)`, id, treePatch.Version))
+	result.AddCommand(`SET TRANSACTION ISOLATION LEVEL SERIALIZABLE`)
+	result.AddCommand(`SELECT check_topic_version($1,$2)`, id, treePatch.Version)
 	err := router.Start()
 	if err != nil {
 		return nil, err
@@ -116,5 +119,6 @@ func (c *TopicPatchCompiler) Compile(id string, treePatch *lecturepatch.Patch) (
 	if err != nil {
 		return nil, err
 	}
+	result.AddCommand(`SELECT increment_topic_version($1)`, id)
 	return result, nil
 }

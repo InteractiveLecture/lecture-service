@@ -61,7 +61,7 @@ func prepare(stmt string, values ...interface{}) (string, []interface{}) {
 		if val.Kind() == reflect.Slice {
 			for i := 0; i < val.Len(); i++ {
 				inval := val.Index(i)
-				parameters = append(parameters, inval)
+				parameters = append(parameters, inval.Interface())
 				parametersString = fmt.Sprintf("%s,$%d", parametersString, currentIndex)
 				currentIndex = currentIndex + 1
 			}
@@ -84,6 +84,10 @@ func NewCommandList() *CommandList {
 
 	return &result
 
+}
+
+func (c *CommandList) AddCommand(command string, values ...interface{}) {
+	c.Commands = append(c.Commands, createCommand(command, values...))
 }
 
 func (c *CommandList) translatePatch(id string, router *urlrouter.Router, patch *lecturepatch.Patch) error {
