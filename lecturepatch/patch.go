@@ -26,7 +26,6 @@ type Operation struct {
 type Patch struct {
 	Operations []Operation `json:"operations"`
 	Version    int         `json:"version"`
-	ModelID    string      `json:"model_id"`
 }
 
 func Decode(reader io.Reader) (*Patch, error) {

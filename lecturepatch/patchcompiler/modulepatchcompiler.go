@@ -18,45 +18,49 @@ func (compiler ModulePatchCompiler) Compile(id string, patch *lecturepatch.Patch
 		Routes: []urlrouter.Route{
 			urlrouter.Route{
 				PathExp: "/recommendations",
-				Dest:    generateAddRecommendation,
+				Dest:    CommandGenerator(generateAddRecommendation),
 			},
 			urlrouter.Route{
 				PathExp: "/description",
-				Dest:    generateReplaceDescription,
+				Dest:    CommandGenerator(generateReplaceDescription),
 			},
 			urlrouter.Route{
 				PathExp: "/recommendations/:recommendationid",
-				Dest:    generateRemoveRecommendation,
+				Dest:    CommandGenerator(generateRemoveRecommendation),
 			},
 			urlrouter.Route{
 				PathExp: "/video",
-				Dest:    generateAddVideo,
+				Dest:    CommandGenerator(generateAddVideo),
 			},
 			urlrouter.Route{
 				PathExp: "/video/:videoid",
-				Dest:    generateRemoveVideo,
+				Dest:    CommandGenerator(generateRemoveVideo),
 			},
 			urlrouter.Route{
 				PathExp: "/script",
-				Dest:    generateAddScript,
+				Dest:    CommandGenerator(generateAddScript),
 			},
 			urlrouter.Route{
 				PathExp: "/script/:scriptid",
-				Dest:    generateRemoveScript,
+				Dest:    CommandGenerator(generateRemoveScript),
 			},
 			urlrouter.Route{
 				PathExp: "/exercises",
-				Dest:    generateAddExercise,
+				Dest:    CommandGenerator(generateAddExercise),
 			},
 			urlrouter.Route{
 				PathExp: "/exercises/:exerciseid",
-				Dest:    generateRemoveExercise,
+				Dest:    CommandGenerator(generateRemoveExercise),
 			},
 		},
 	}
 	result.Commands = append(result.Commands, createCommand(`SET TRANSACTION ISOLATION LEVEL SERIALIZABLE`))
-	result.Commands = append(result.Commands, createCommand(`SELECT check_module_version($1,$2)`, patch.ModelID, patch.Version))
-	err := result.translatePatch(id, router, patch)
+	result.Commands = append(result.Commands, createCommand(`SELECT check_module_version($1,$2)`, id, patch.Version))
+	err := router.Start()
+	if err != nil {
+		return nil, err
+	}
+	err = result.translatePatch(id, router, patch)
 	if err != nil {
 		return nil, err
 	}

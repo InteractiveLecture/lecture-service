@@ -57,8 +57,9 @@ create table hints (
   exercise_id UUID REFERENCES exercises(id) ON DELETE CASCADE,
   content TEXT NOT NULL,
   cost SMALLINT NOT NULL CHECK(cost > 0),
-  version BIGINT NOT NULL CHECK(version > 0)
-  position int NOT NULL CHECK(position > 0)
+  version BIGINT NOT NULL CHECK(version > 0),
+  position int NOT NULL CHECK(position > 0),
+  CONSTRAINT u_constraint UNIQUE (id, position)
 );
 
 
