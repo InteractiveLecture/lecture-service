@@ -1,4 +1,4 @@
-CREATE OR REPLACE FUNCTION move_module(module_id UUID, new_parent_ids VARIADIC []UUID) 
+CREATE OR REPLACE FUNCTION move_module(context_id UUID,module_id UUID, new_parent_ids VARIADIC UUID[]) 
 RETURNS void AS $$
 DECLARE 
 old_parent UUID;
@@ -41,7 +41,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION move_module_tree(module_id UUID, new_parent_ids VARIADIC []UUID) 
+CREATE OR REPLACE FUNCTION move_module_tree(context_id UUID, module_id UUID, new_parent_ids VARIADIC UUID[]) 
 RETURNS void AS $$
 DECLARE 
 parent_levels []int;
@@ -79,7 +79,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 
-CREATE OR REPLACE FUNCTION delete_module(module_id UUID) 
+CREATE OR REPLACE FUNCTION remove_module(context_id UUID, module_id UUID) 
 RETURNS void AS $$
 DECLARE 
 parent_level int;
@@ -106,7 +106,7 @@ $$ LANGUAGE plpgsql;
 
 
 
-CREATE OR REPLACE FUNCTION delete_module_tree(module_id UUID) 
+CREATE OR REPLACE FUNCTION remove_module_tree(context_id UUID, module_id UUID) 
 RETURNS void AS $$
 DECLARE 
 topic_id UUID;
@@ -118,7 +118,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION insert_module(id UUID, topic_id UUID, description text,  video_id UUID, script_id UUID,parent_ids VARIADIC UUID[]) 
+CREATE OR REPLACE FUNCTION add_module(id UUID, topic_id UUID, description text,  video_id UUID, script_id UUID,parent_ids VARIADIC UUID[]) 
 RETURNS void AS $$
 DECLARE
 parent_id UUID;
@@ -143,10 +143,11 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION check_version(topic_id UUID, assumed_version bigint) 
+CREATE OR REPLACE FUNCTION check_version(id UUID, version_table varchar, assumed_version bigint) 
 RETURNS void AS $$
 DECLARE 
 real_version bigint;
+stmt text := 'SELECT version';
 BEGIN
   SET CONSTRAINTS ALL DEFERRED;
   SELECT t.version into real_version FROM topics t where t.id = topic_id;
