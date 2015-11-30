@@ -15,6 +15,7 @@ func createExercisePatch() *lecturepatch.Patch {
 			Type: lecturepatch.ADD,
 			Path: "/hints",
 			Value: map[string]interface{}{
+				"id":       "999",
 				"position": 1,
 				"cost":     100,
 				"content":  "Dies ist der erste Hint",
@@ -189,9 +190,10 @@ func TestModulePatchCompiler(t *testing.T) {
 	assert.NotNil(t, list)
 
 	assert.Equal(t, "SET TRANSACTION ISOLATION LEVEL SERIALIZABLE", list.Commands[0].statement)
-	assert.Equal(t, "SELECT check_module_version($1,$2)", list.Commands[1].statement)
+	assert.Equal(t, "SELECT check_version($1,$2,$3)", list.Commands[1].statement)
 
-	assert.Equal(t, "SELECT increment_module_version($1)", list.Commands[len(list.Commands)-1].statement)
+	assert.Equal(t, "SELECT increment_version($1,$2)", list.Commands[len(list.Commands)-2].statement)
+	assert.Equal(t, "REFRESH MATERIALIZED VIEW module_trees", list.Commands[len(list.Commands)-1].statement)
 
 	assert.Equal(t, "SELECT replace_module_description($1,$2)", list.Commands[2].statement)
 	assert.Equal(t, "123", list.Commands[2].parameters[0])
@@ -239,19 +241,18 @@ func TestTopicPatchCompiler(t *testing.T) {
 	assert.Nil(t, err)
 	assert.NotNil(t, list)
 	assert.Equal(t, "SET TRANSACTION ISOLATION LEVEL SERIALIZABLE", list.Commands[0].statement)
-	assert.Equal(t, "SELECT check_topic_version($1,$2)", list.Commands[1].statement)
-	assert.Equal(t, "SELECT update_topic_description($1,$2)", list.Commands[2].statement)
+	assert.Equal(t, "SELECT check_version($1,$2,$3)", list.Commands[1].statement)
+	assert.Equal(t, "SELECT replace_topic_description($1,$2)", list.Commands[2].statement)
 	assert.Equal(t, "Hallo Welt", list.Commands[2].parameters[1])
-	assert.Equal(t, "SELECT add_assistant($1,$2,$3)", list.Commands[3].statement)
+	assert.Equal(t, "SELECT add_assistant($1,$2)", list.Commands[3].statement)
 	assert.Equal(t, "123", list.Commands[3].parameters[0])
 	assert.Equal(t, "111", list.Commands[3].parameters[1])
-	assert.Equal(t, "ASSISTANT", list.Commands[3].parameters[2])
 
 	assert.Equal(t, "SELECT remove_assistant($1,$2)", list.Commands[4].statement)
 	assert.Equal(t, "123", list.Commands[4].parameters[0])
 	assert.Equal(t, "111", list.Commands[4].parameters[1])
 
-	assert.Equal(t, "SELECT insert_module($1,$2,$3,$4,$5,$6,$7)", list.Commands[5].statement)
+	assert.Equal(t, "SELECT add_module($1,$2,$3,$4,$5,$6,$7)", list.Commands[5].statement)
 	assert.Equal(t, "222", list.Commands[5].parameters[0])
 	assert.Equal(t, "123", list.Commands[5].parameters[1])
 	assert.Equal(t, "Hugo", list.Commands[5].parameters[2])
@@ -280,7 +281,8 @@ func TestTopicPatchCompiler(t *testing.T) {
 	assert.Equal(t, "123", list.Commands[9].parameters[0])
 	assert.Equal(t, "222", list.Commands[9].parameters[1])
 
-	assert.Equal(t, "SELECT increment_topic_version($1)", list.Commands[len(list.Commands)-1].statement)
+	assert.Equal(t, "SELECT increment_version($1,$2)", list.Commands[len(list.Commands)-2].statement)
+	assert.Equal(t, "REFRESH MATERIALIZED VIEW module_trees", list.Commands[len(list.Commands)-1].statement)
 }
 
 func TestExercicePatchCompiler(t *testing.T) {
@@ -289,14 +291,15 @@ func TestExercicePatchCompiler(t *testing.T) {
 	list, err := compiler.Compile("123", patch)
 	assert.Nil(t, err)
 	assert.Equal(t, "SET TRANSACTION ISOLATION LEVEL SERIALIZABLE", list.Commands[0].statement)
-	assert.Equal(t, "SELECT check_exercise_version($1,$2)", list.Commands[1].statement)
-	assert.Equal(t, "SELECT increment_exercise_version($1)", list.Commands[len(list.Commands)-1].statement)
+	assert.Equal(t, "SELECT check_version($1,$2,$3)", list.Commands[1].statement)
+	assert.Equal(t, "SELECT increment_version($1,$2)", list.Commands[len(list.Commands)-1].statement)
 
-	assert.Equal(t, "SELECT add_hint($1,$2,$3,$4)", list.Commands[2].statement)
-	assert.Equal(t, "123", list.Commands[2].parameters[0])
-	assert.Equal(t, 1, list.Commands[2].parameters[1])
-	assert.Equal(t, "Dies ist der erste Hint", list.Commands[2].parameters[2])
-	assert.Equal(t, 100, list.Commands[2].parameters[3])
+	assert.Equal(t, "SELECT add_hint($1,$2,$3,$4,$5)", list.Commands[2].statement)
+	assert.Equal(t, "999", list.Commands[2].parameters[0])
+	assert.Equal(t, "123", list.Commands[2].parameters[1])
+	assert.Equal(t, 1, list.Commands[2].parameters[2])
+	assert.Equal(t, "Dies ist der erste Hint", list.Commands[2].parameters[3])
+	assert.Equal(t, 100, list.Commands[2].parameters[4])
 
 	assert.Equal(t, "SELECT remove_hint($1,$2)", list.Commands[3].statement)
 	assert.Equal(t, "123", list.Commands[3].parameters[0])

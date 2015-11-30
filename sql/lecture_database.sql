@@ -1,4 +1,6 @@
+
 create user lectureapp;
+
 
 create database lecture owner lectureapp;
 
@@ -47,17 +49,17 @@ create table exercises (
 
 create table tasks (
   exercise_id UUID REFERENCES exercises(id) ON DELETE CASCADE,
-  content text NOT NULL,
   position int NOT NULL CHECK(position > 0),
+  content text NOT NULL,
   PRIMARY KEY(exercise_id, position)
 );
 
 create table hints (
-  exercise_id UUID REFERENCES exercises(id) ON DELETE CASCADE,
   id UUID PRIMARY KEY,
+  exercise_id UUID REFERENCES exercises(id) ON DELETE CASCADE,
+  position int NOT NULL CHECK(position > 0),
   content TEXT NOT NULL,
   cost SMALLINT NOT NULL CHECK(cost > 0),
-  position int NOT NULL CHECK(position > 0),
   UNIQUE(exercise_id, position)
 );
 

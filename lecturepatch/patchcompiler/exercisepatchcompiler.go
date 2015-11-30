@@ -54,15 +54,16 @@ func (c *ExercisePatchCompiler) Compile(id string, patch *lecturepatch.Patch) (*
 		return nil, err
 	}
 	result.AddCommand("SET TRANSACTION ISOLATION LEVEL SERIALIZABLE")
-	result.AddCommand("SELECT check_exercise_version($1,$2)", id, patch.Version)
+	result.AddCommand("SELECT check_version($1,$2,$3)", id, "exercises", patch.Version)
 	err = result.translatePatch(id, &router, patch)
 	if err != nil {
 		return nil, err
 	}
-	result.AddCommand("SELECT increment_exercise_version($1)", id)
+	result.AddCommand("SELECT increment_version($1,$2)", id, "exercises")
 	return result, nil
 }
 
+//database checked
 func generateAddTask(id string, op *lecturepatch.Operation, params map[string]string) (*command, error) {
 	values := op.Value.(map[string]interface{})
 	if op.Type != lecturepatch.ADD {
@@ -72,6 +73,7 @@ func generateAddTask(id string, op *lecturepatch.Operation, params map[string]st
 	return createCommand(stmt, par...), nil
 }
 
+// database checked
 func generateMoveOrRemoveTask(id string, op *lecturepatch.Operation, params map[string]string) (*command, error) {
 	switch op.Type {
 	case lecturepatch.REMOVE:
@@ -101,15 +103,17 @@ func generateMoveOrRemoveTask(id string, op *lecturepatch.Operation, params map[
 	}
 }
 
+//database checked
 func generateAddHint(id string, op *lecturepatch.Operation, params map[string]string) (*command, error) {
 	if op.Type != lecturepatch.ADD {
 		return nil, InvalidPatchError{fmt.Sprintf("Only add allowed for %s", op.Path)}
 	}
 	value := op.Value.(map[string]interface{})
-	stmt, par := prepare("SELECT add_hint(%v)", id, value["position"], value["content"], value["cost"])
+	stmt, par := prepare("SELECT add_hint(%v)", value["id"], id, value["position"], value["content"], value["cost"])
 	return createCommand(stmt, par...), nil
 }
 
+//database checked
 func generateMoveOrRemoveHint(id string, op *lecturepatch.Operation, params map[string]string) (*command, error) {
 	switch op.Type {
 	case lecturepatch.REMOVE:
@@ -140,6 +144,7 @@ func generateMoveOrRemoveHint(id string, op *lecturepatch.Operation, params map[
 	}
 }
 
+//database checked
 func generateUpdateHintContent(id string, op *lecturepatch.Operation, params map[string]string) (*command, error) {
 	if op.Type != lecturepatch.REPLACE {
 		return nil, InvalidPatchError{fmt.Sprintf("Only add allowed for %s", op.Path)}
@@ -152,6 +157,7 @@ func generateUpdateHintContent(id string, op *lecturepatch.Operation, params map
 	return createCommand(stmt, par...), nil
 }
 
+//database checked
 func generateUpdateHintCost(id string, op *lecturepatch.Operation, params map[string]string) (*command, error) {
 	if op.Type != lecturepatch.REPLACE {
 		return nil, InvalidPatchError{fmt.Sprintf("Only add allowed for %s", op.Path)}
@@ -164,6 +170,7 @@ func generateUpdateHintCost(id string, op *lecturepatch.Operation, params map[st
 	return createCommand(stmt, par...), nil
 }
 
+//database checked
 func generateUpdateTaskCommand(id string, op *lecturepatch.Operation, params map[string]string) (*command, error) {
 	if op.Type != lecturepatch.REPLACE {
 		return nil, InvalidPatchError{fmt.Sprintf("Only add allowed for %s", op.Path)}

@@ -39,12 +39,17 @@ func TestMoveSingle(t *testing.T) {
 
 	modules := getModules(t, db)
 	assert.Equal(t, len(modules), 7)
-	_, err = db.Exec(`SELECT move_module($1,$2)`, modules["bazz"].Id, modules["foo"].Id)
+	_, err = db.Exec(`SELECT move_module($1,$2,$3)`, modules["bazz"].topicId, modules["bazz"].Id, modules["foo"].Id)
 	assert.Nil(t, err)
+	_, err = db.Exec("REFRESH MATERIALIZED VIEW module_trees")
+	assert.Nil(t, err)
+
 	modules = getModules(t, db)
 	assert.Equal(t, len(modules), 7) //lenght shouldnt have changed.
 	assert.Equal(t, 1, modules["bazz"].level)
-	_, err = db.Exec(`SELECT move_module($1,$2)`, modules["foo"].Id, modules["bla"].Id)
+	_, err = db.Exec(`SELECT move_module($1,$2,$3)`, modules["foo"].topicId, modules["foo"].Id, modules["bla"].Id)
+	assert.Nil(t, err)
+	_, err = db.Exec("REFRESH MATERIALIZED VIEW module_trees")
 	assert.Nil(t, err)
 	modules = getModules(t, db)
 	assert.Equal(t, 3, modules["foo"].level)
@@ -55,7 +60,7 @@ func TestMoveSingle(t *testing.T) {
 		}
 	}
 	topicId := getTopicId(t, db, modules["foo"].Id)
-	_, err = db.Exec(`SELECT check_version($1,$2)`, topicId, 2)
+	_, err = db.Exec(`SELECT check_version($1,$2,$3)`, topicId, "topics", 2)
 	assert.Nil(t, err)
 }
 
@@ -73,14 +78,19 @@ func TestMoveTree(t *testing.T) {
 	assert.Nil(t, err)
 	defer db.Close()
 	modules := getModules(t, db)
-	_, err = db.Exec(`SELECT move_module_tree($1,$2)`, modules["bli"].Id, modules["foo"].Id)
+	_, err = db.Exec(`SELECT move_module_tree($1,$2,$3)`, modules["bli"].topicId, modules["bli"].Id, modules["foo"].Id)
+	_, err = db.Exec("REFRESH MATERIALIZED VIEW module_trees")
+	assert.Nil(t, err)
+
 	assert.Nil(t, err)
 	modules = getModules(t, db)
 	for i := 0; i < 2; i++ {
 		assert.False(t, strings.Contains(modules["bazz"].paths[i], modules["bar"].Id))
 	}
 	assert.Equal(t, 1, modules["bar"].level)
-	_, err = db.Exec(`SELECT move_module_tree($1,$2)`, modules["bli"].Id, modules["foo"].Id)
+	_, err = db.Exec(`SELECT move_module_tree($1,$2,$3)`, modules["bli"].topicId, modules["bli"].Id, modules["foo"].Id)
+	assert.Nil(t, err)
+	_, err = db.Exec("REFRESH MATERIALIZED VIEW module_trees")
 	assert.Nil(t, err)
 	assert.Equal(t, modules["bli"].Id, getDirectParents(modules["bla"])[0])
 }
@@ -90,7 +100,11 @@ func TestDeleteModule(t *testing.T) {
 	assert.Nil(t, err)
 	defer db.Close()
 	modules := getModules(t, db)
-	_, err = db.Exec(`SELECT delete_module($1)`, modules["bli"].Id)
+	context := modules["bli"].topicId
+	_, err = db.Exec(`SELECT remove_module($1,$2)`, context, modules["bli"].Id)
+	_, err = db.Exec("REFRESH MATERIALIZED VIEW module_trees")
+	assert.Nil(t, err)
+
 	assert.Nil(t, err)
 	modules = getModules(t, db)
 	parents := getDirectParents(modules["bla"])
@@ -99,10 +113,16 @@ func TestDeleteModule(t *testing.T) {
 	parents = getDirectParents(modules["blubb"])
 	assert.Equal(t, 1, len(parents))
 	assert.Equal(t, modules["bar"].Id, parents[0])
-	_, err = db.Exec(`SELECT delete_module($1)`, modules["foo"].Id)
+	_, err = db.Exec(`SELECT remove_module($1,$2)`, context, modules["foo"].Id)
 	assert.Nil(t, err)
-	_, err = db.Exec(`SELECT delete_module($1)`, modules["bar"].Id)
+	_, err = db.Exec("REFRESH MATERIALIZED VIEW module_trees")
 	assert.Nil(t, err)
+
+	_, err = db.Exec(`SELECT remove_module($1,$2)`, context, modules["bar"].Id)
+	assert.Nil(t, err)
+	_, err = db.Exec("REFRESH MATERIALIZED VIEW module_trees")
+	assert.Nil(t, err)
+
 	modules = getModules(t, db)
 	assert.Equal(t, 4, len(modules))
 	assert.Equal(t, modules["bla"].Id, getDirectParents(modules["blubb"])[0])
@@ -119,8 +139,13 @@ func TestInsertModule(t *testing.T) {
 	//	parameters = append(parameters,
 	//	_, err = db.Exec(`SELECT insert_module($1,$2,$3,$4,$5,$6)`, uuid.NewV4().String(), modules["foo"].topicId, "hugo", uuid.NewV4(), uuid.NewV4(), parents...)
 
-	_, err = db.Exec(`SELECT insert_module($1,$2,$3,$4,$5,$6)`, parameters...)
+	_, err = db.Exec(`SELECT add_module($1,$2,$3,$4,$5,$6)`, parameters...)
+
 	assert.Nil(t, err)
+
+	_, err = db.Exec("REFRESH MATERIALIZED VIEW module_trees")
+	assert.Nil(t, err)
+
 	modules = getModules(t, db)
 	val, ok := modules["hugo"]
 	assert.True(t, ok)
@@ -134,10 +159,16 @@ func TestDeleteModuleTree(t *testing.T) {
 	assert.Nil(t, err)
 	defer db.Close()
 	modules := getModules(t, db)
-	_, err = db.Exec(`SELECT insert_module($1,$2,$3,$4)`, uuid.NewV4().String(), modules["foo"].topicId, "hugo", modules["foo"].Id)
+	_, err = db.Exec(`SELECT add_module($1,$2,$3,$4,$5,$6)`, uuid.NewV4().String(), modules["foo"].topicId, "hugo", nil, nil, modules["foo"].Id)
 	assert.Nil(t, err)
-	_, err = db.Exec(`SELECT delete_module_tree($1)`, modules["bar"].Id)
+	_, err = db.Exec("REFRESH MATERIALIZED VIEW module_trees")
 	assert.Nil(t, err)
+
+	_, err = db.Exec(`SELECT remove_module_tree($1,$2)`, modules["bar"].topicId, modules["bar"].Id)
+	assert.Nil(t, err)
+	_, err = db.Exec("REFRESH MATERIALIZED VIEW module_trees")
+	assert.Nil(t, err)
+
 	modules = getModules(t, db)
 	assert.Equal(t, 3, len(modules))
 	for _, v := range []string{"foo", "hugo"} {

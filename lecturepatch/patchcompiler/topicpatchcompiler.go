@@ -11,15 +11,17 @@ func ForTopics() PatchCompiler {
 	return &TopicPatchCompiler{}
 }
 
+//database checked
 func generateAddModule(id string, op *lecturepatch.Operation, params map[string]string) (*command, error) {
 	if op.Type != lecturepatch.ADD {
 		return nil, InvalidPatchError{"Operation not allowed here"}
 	}
 	value := op.Value.(map[string]interface{})
-	stmt, parameters := prepare("SELECT insert_module(%v)", value["id"], id, value["description"], value["video_id"], value["script_id"], value["parents"])
+	stmt, parameters := prepare("SELECT add_module(%v)", value["id"], id, value["description"], value["video_id"], value["script_id"], value["parents"])
 	return createCommand(stmt, parameters...), nil
 }
 
+//database checked
 func generateRemoveModuleTree(id string, op *lecturepatch.Operation, params map[string]string) (*command, error) {
 	if op.Type != lecturepatch.REMOVE {
 		return nil, InvalidPatchError{"Operation not allowed here"}
@@ -27,6 +29,7 @@ func generateRemoveModuleTree(id string, op *lecturepatch.Operation, params map[
 	return createCommand("SELECT remove_module_tree($1,$2)", id, params["moduleId"]), nil
 }
 
+//database checked
 func generateRemoveModule(id string, op *lecturepatch.Operation, params map[string]string) (*command, error) {
 	if op.Type != lecturepatch.REMOVE {
 		return nil, InvalidPatchError{"Operation not allowed here"}
@@ -34,6 +37,7 @@ func generateRemoveModule(id string, op *lecturepatch.Operation, params map[stri
 	return createCommand("SELECT remove_module($1,$2)", id, params["moduleId"]), nil
 }
 
+//database checked
 func generateMoveModule(id string, op *lecturepatch.Operation, params map[string]string) (*command, error) {
 	if op.Type != lecturepatch.REPLACE {
 		return nil, InvalidPatchError{"Operation not allowed here"}
@@ -42,6 +46,7 @@ func generateMoveModule(id string, op *lecturepatch.Operation, params map[string
 	return createCommand(stmt, parameters...), nil
 }
 
+//database checked
 func generateMoveModuleTree(id string, op *lecturepatch.Operation, params map[string]string) (*command, error) {
 	if op.Type != lecturepatch.REPLACE {
 		return nil, InvalidPatchError{"Operation not allowed here"}
@@ -50,20 +55,23 @@ func generateMoveModuleTree(id string, op *lecturepatch.Operation, params map[st
 	return createCommand(stmt, parameters...), nil
 }
 
+//database checked
 func generateReplaceTopicDescription(id string, op *lecturepatch.Operation, params map[string]string) (*command, error) {
 	if op.Type != lecturepatch.REPLACE {
 		return nil, InvalidPatchError{"Operation not allowed here"}
 	}
-	return createCommand("SELECT update_topic_description($1,$2)", id, op.Value), nil
+	return createCommand("SELECT replace_topic_description($1,$2)", id, op.Value), nil
 }
 
+//database checked
 func generateAddAssistant(id string, op *lecturepatch.Operation, params map[string]string) (*command, error) {
 	if op.Type != lecturepatch.ADD {
 		return nil, InvalidPatchError{"Operation not allowed here"}
 	}
-	return createCommand("SELECT add_assistant($1,$2,$3)", id, op.Value, "ASSISTANT"), nil
+	return createCommand("SELECT add_assistant($1,$2)", id, op.Value), nil
 }
 
+//databsae checked
 func generateRemoveAssistant(id string, op *lecturepatch.Operation, params map[string]string) (*command, error) {
 	if op.Type != lecturepatch.REMOVE {
 		return nil, InvalidPatchError{"Operation not allowed here"}
@@ -110,7 +118,7 @@ func (c *TopicPatchCompiler) Compile(id string, treePatch *lecturepatch.Patch) (
 	}
 	result := NewCommandList()
 	result.AddCommand(`SET TRANSACTION ISOLATION LEVEL SERIALIZABLE`)
-	result.AddCommand(`SELECT check_topic_version($1,$2)`, id, treePatch.Version)
+	result.AddCommand(`SELECT check_version($1,$2,$3)`, id, "topics", treePatch.Version)
 	err := router.Start()
 	if err != nil {
 		return nil, err
@@ -119,6 +127,7 @@ func (c *TopicPatchCompiler) Compile(id string, treePatch *lecturepatch.Patch) (
 	if err != nil {
 		return nil, err
 	}
-	result.AddCommand(`SELECT increment_topic_version($1)`, id)
+	result.AddCommand(`SELECT increment_version($1,$2)`, id, "topics")
+	result.AddCommand(`REFRESH MATERIALIZED VIEW module_trees`)
 	return result, nil
 }

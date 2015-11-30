@@ -55,7 +55,7 @@ func (compiler ModulePatchCompiler) Compile(id string, patch *lecturepatch.Patch
 		},
 	}
 	result.AddCommand(`SET TRANSACTION ISOLATION LEVEL SERIALIZABLE`)
-	result.AddCommand(`SELECT check_module_version($1,$2)`, id, patch.Version)
+	result.AddCommand(`SELECT check_version($1,$2,$3)`, id, "modules", patch.Version)
 	err := router.Start()
 	if err != nil {
 		return nil, err
@@ -64,10 +64,12 @@ func (compiler ModulePatchCompiler) Compile(id string, patch *lecturepatch.Patch
 	if err != nil {
 		return nil, err
 	}
-	result.AddCommand("SELECT increment_module_version($1)", id)
+	result.AddCommand("SELECT increment_version($1,$2)", id, "modules")
+	result.AddCommand(`REFRESH MATERIALIZED VIEW module_trees`)
 	return result, nil
 }
 
+// database checked
 func generateReplaceDescription(id string, op *lecturepatch.Operation, params map[string]string) (*command, error) {
 	if op.Type != lecturepatch.REPLACE {
 		return nil, InvalidPatchError{"Operation Not allowed here."}
@@ -75,6 +77,7 @@ func generateReplaceDescription(id string, op *lecturepatch.Operation, params ma
 	return createCommand("SELECT replace_module_description($1,$2)", id, op.Value), nil
 }
 
+//database checked
 func generateAddRecommendation(id string, op *lecturepatch.Operation, params map[string]string) (*command, error) {
 	if op.Type != lecturepatch.ADD {
 		return nil, InvalidPatchError{"Operation Not allowed here."}
@@ -82,6 +85,7 @@ func generateAddRecommendation(id string, op *lecturepatch.Operation, params map
 	return createCommand("SELECT add_module_recommendation($1,$2)", id, op.Value), nil
 }
 
+//database checked
 func generateRemoveRecommendation(id string, op *lecturepatch.Operation, params map[string]string) (*command, error) {
 	if op.Type != lecturepatch.REMOVE {
 		return nil, InvalidPatchError{"Operation Not allowed here."}
@@ -89,6 +93,7 @@ func generateRemoveRecommendation(id string, op *lecturepatch.Operation, params 
 	return createCommand("SELECT remove_module_recommendation($1,$2)", id, params["recommendationId"]), nil
 }
 
+//database checked
 func generateAddVideo(id string, op *lecturepatch.Operation, params map[string]string) (*command, error) {
 	if op.Type != lecturepatch.ADD {
 		return nil, InvalidPatchError{"Operation Not allowed here."}
@@ -96,6 +101,7 @@ func generateAddVideo(id string, op *lecturepatch.Operation, params map[string]s
 	return createCommand(`SELECT add_module_video($1,$2)`, id, op.Value), nil
 }
 
+// database checked
 func generateRemoveVideo(id string, op *lecturepatch.Operation, params map[string]string) (*command, error) {
 	if op.Type != lecturepatch.REMOVE {
 		return nil, InvalidPatchError{"Operation Not allowed here."}
@@ -103,6 +109,7 @@ func generateRemoveVideo(id string, op *lecturepatch.Operation, params map[strin
 	return createCommand(`SELECT remove_module_video($1,$2)`, id, params["videoId"]), nil
 }
 
+//database checked
 func generateAddScript(id string, op *lecturepatch.Operation, params map[string]string) (*command, error) {
 	if op.Type != lecturepatch.ADD {
 		return nil, InvalidPatchError{"Operation Not allowed here."}
@@ -110,6 +117,7 @@ func generateAddScript(id string, op *lecturepatch.Operation, params map[string]
 	return createCommand(`SELECT add_module_script($1,$2)`, id, op.Value), nil
 }
 
+//dataase checked
 func generateRemoveScript(id string, op *lecturepatch.Operation, params map[string]string) (*command, error) {
 	if op.Type != lecturepatch.REMOVE {
 		return nil, InvalidPatchError{"Operation Not allowed here."}
@@ -117,6 +125,7 @@ func generateRemoveScript(id string, op *lecturepatch.Operation, params map[stri
 	return createCommand(`SELECT remove_module_script($1,$2)`, id, params["scriptId"]), nil
 }
 
+//database checked
 func generateAddExercise(id string, op *lecturepatch.Operation, params map[string]string) (*command, error) {
 	if op.Type != lecturepatch.ADD {
 		return nil, InvalidPatchError{"Operation Not allowed here."}
@@ -126,6 +135,7 @@ func generateAddExercise(id string, op *lecturepatch.Operation, params map[strin
 	return createCommand(stmt, par...), nil
 }
 
+//database checked
 func generateRemoveExercise(id string, op *lecturepatch.Operation, params map[string]string) (*command, error) {
 	if op.Type != lecturepatch.REMOVE {
 		return nil, InvalidPatchError{"Operation Not allowed here."}
