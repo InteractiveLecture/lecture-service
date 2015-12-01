@@ -1,13 +1,16 @@
 package handler
 
 import (
+	"bytes"
 	"encoding/json"
+	"io"
+	"log"
 	"net/http"
 
 	"github.com/InteractiveLecture/id-extractor"
+	"github.com/richterrettich/lecture-service/lecturepatch"
 	"github.com/richterrettich/lecture-service/models"
 	"github.com/richterrettich/lecture-service/paginator"
-	"github.com/richterrettich/lecture-service/repositories"
 )
 
 func TopicCollectionHandler(factory repositories.TopicRepositoryFactory) http.Handler {
@@ -22,9 +25,10 @@ func TopicCollectionHandler(factory repositories.TopicRepositoryFactory) http.Ha
 		if err != nil {
 			return http.StatusInternalServerError
 		}
-		err = json.NewEncoder(w).Encode(result)
+		reader := bytes.NewReader(result)
+		_, err := io.Copy(w, reader)
 		if err != nil {
-			return http.StatusInternalServerError
+			log.Println(err)
 		}
 		return -1
 	}
@@ -43,9 +47,10 @@ func TopicFindHandler(factory repositories.TopicRepositoryFactory, extractor ide
 		if err != nil {
 			return http.StatusNotFound
 		}
-		err = json.NewEncoder(w).Encode(result)
+		reader := bytes.NewReader(result)
+		_, err = io.Copy(w, reader)
 		if err != nil {
-			return http.StatusInternalServerError
+			log.Println(err)
 		}
 		return -1
 	}
@@ -77,7 +82,7 @@ func TopicCreateHandler(factory repositories.TopicRepositoryFactory) http.Handle
 	return createHandler(handlerFunc)
 }
 
-func TopicUpdateHandler(factory repositories.TopicRepositoryFactory, extractor idextractor.Extractor) http.Handler {
+func TopicPatchHandler(factory repositories.TopicRepositoryFactory, extractor idextractor.Extractor) http.Handler {
 	handlerFunc := func(w http.ResponseWriter, r *http.Request) int {
 		repository := factory.CreateRepository()
 		defer repository.Close()
@@ -85,13 +90,11 @@ func TopicUpdateHandler(factory repositories.TopicRepositoryFactory, extractor i
 		if err != nil {
 			return http.StatusInternalServerError
 		}
-		var newValues = make(map[string]interface{})
-		//TODO validate new values.
-		err = json.NewDecoder(r.Body).Decode(newValues)
+		patch, err := lecturepatch.Decode(r.Body)
 		if err != nil {
 			return http.StatusBadRequest
 		}
-		err = repository.Update(id, newValues)
+		err = repository.Update(id, patch)
 		if err != nil {
 			return http.StatusInternalServerError
 		}
@@ -108,34 +111,12 @@ func TopicAddOfficersHandler(factory repositories.TopicRepositoryFactory, extrac
 		if err != nil {
 			return http.StatusInternalServerError
 		}
-		var officers = make([]string, 0)
-		err = json.NewDecoder(r.Body).Decode(officers)
+		var officer string
+		err = json.NewDecoder(r.Body).Decode(officer)
 		if err != nil {
 			return http.StatusBadRequest
 		}
-		err = repository.AddOfficers(id, officers...)
-		if err != nil {
-			return http.StatusInternalServerError
-		}
-		return -1
-	}
-	return createHandler(handlerFunc)
-}
-
-func TopicAddAssistantsHandler(factory repositories.TopicRepositoryFactory, extractor idextractor.Extractor) http.Handler {
-	handlerFunc := func(w http.ResponseWriter, r *http.Request) int {
-		repository := factory.CreateRepository()
-		defer repository.Close()
-		id, err := extractor(r)
-		if err != nil {
-			return http.StatusInternalServerError
-		}
-		var assistants = make([]string, 0)
-		err = json.NewDecoder(r.Body).Decode(assistants)
-		if err != nil {
-			return http.StatusBadRequest
-		}
-		err = repository.AddAssistants(id, assistants...)
+		err = repository.AddOfficer(id, officer)
 		if err != nil {
 			return http.StatusInternalServerError
 		}
@@ -152,35 +133,12 @@ func TopicRemoveOfficersHandler(factory repositories.TopicRepositoryFactory, ext
 		if err != nil {
 			return http.StatusInternalServerError
 		}
-		var officers = make([]string, 0)
-		err = json.NewDecoder(r.Body).Decode(officers)
+		var officer string
+		err = json.NewDecoder(r.Body).Decode(officer)
 		if err != nil {
 			return http.StatusBadRequest
 		}
-		err = repository.RemoveOfficers(id, officers...)
-		if err != nil {
-			return http.StatusInternalServerError
-		}
-		return -1
-	}
-	return createHandler(handlerFunc)
-}
-
-func TopicRemoveAssistantsHandler(factory repositories.TopicRepositoryFactory, extractor idextractor.Extractor) http.Handler {
-
-	handlerFunc := func(w http.ResponseWriter, r *http.Request) int {
-		repository := factory.CreateRepository()
-		defer repository.Close()
-		id, err := extractor(r)
-		if err != nil {
-			return http.StatusInternalServerError
-		}
-		var assistants = make([]string, 0)
-		err = json.NewDecoder(r.Body).Decode(assistants)
-		if err != nil {
-			return http.StatusBadRequest
-		}
-		err = repository.RemoveAssistants(id, assistants...)
+		err = repository.RemoveOfficers(id, officer)
 		if err != nil {
 			return http.StatusInternalServerError
 		}

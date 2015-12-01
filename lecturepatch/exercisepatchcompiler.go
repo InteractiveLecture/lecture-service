@@ -1,4 +1,4 @@
-package patchcompiler
+package lecturepatch
 
 import (
 	"fmt"
@@ -6,16 +6,16 @@ import (
 	"strings"
 
 	"github.com/ant0ine/go-urlrouter"
-	"github.com/richterrettich/lecture-service/lecturepatch"
+	"github.com/richterrettich/jsonpatch"
 )
 
 type ExercisePatchCompiler struct{}
 
-func ForExercises() PatchCompiler {
+func ForExercises() jsonpatch.PatchCompiler {
 	return &ExercisePatchCompiler{}
 }
 
-func (c *ExercisePatchCompiler) Compile(id string, patch *lecturepatch.Patch) (*CommandList, error) {
+func (c *ExercisePatchCompiler) Compile(id string, patch *jsonpatch.Patch) (*jsonpatch.CommandList, error) {
 	result := NewCommandList()
 	router := urlrouter.Router{
 		Routes: []urlrouter.Route{
@@ -53,60 +53,60 @@ func (c *ExercisePatchCompiler) Compile(id string, patch *lecturepatch.Patch) (*
 	if err != nil {
 		return nil, err
 	}
-	result.AddCommand("SET TRANSACTION ISOLATION LEVEL SERIALIZABLE")
-	result.AddCommand("SELECT check_version($1,$2,$3)", id, "exercises", patch.Version)
-	err = result.translatePatch(id, &router, patch)
+	AddCommand(result, "SET TRANSACTION ISOLATION LEVEL SERIALIZABLE")
+	AddCommand(result, "SELECT check_version($1,$2,$3)", id, "exercises", patch.Version)
+	err = translatePatch(result, id, &router, patch)
 	if err != nil {
 		return nil, err
 	}
-	result.AddCommand("SELECT increment_version($1,$2)", id, "exercises")
+	AddCommand(result, "SELECT increment_version($1,$2)", id, "exercises")
 	return result, nil
 }
 
 //database checked
-func generateAddTask(id string, op *lecturepatch.Operation, params map[string]string) (*command, error) {
+func generateAddTask(id string, op *jsonpatch.Operation, params map[string]string) (jsonpatch.CommandContainer, error) {
 	values := op.Value.(map[string]interface{})
-	if op.Type != lecturepatch.ADD {
-		return nil, InvalidPatchError{fmt.Sprintf("Only add allowed for %s", op.Path)}
+	if op.Type != jsonpatch.ADD {
+		return nil, jsonpatch.InvalidPatchError{fmt.Sprintf("Only add allowed for %s", op.Path)}
 	}
 	stmt, par := prepare("SELECT add_task(%v)", id, values["position"], values["content"])
 	return createCommand(stmt, par...), nil
 }
 
 // database checked
-func generateMoveOrRemoveTask(id string, op *lecturepatch.Operation, params map[string]string) (*command, error) {
+func generateMoveOrRemoveTask(id string, op *jsonpatch.Operation, params map[string]string) (jsonpatch.CommandContainer, error) {
 	switch op.Type {
-	case lecturepatch.REMOVE:
+	case jsonpatch.REMOVE:
 		newPosition, err := strconv.Atoi(params["taskPosition"])
 		if err != nil {
-			return nil, InvalidPatchError{"Error while moving/removing task: not a valid path variable."}
+			return nil, jsonpatch.InvalidPatchError{"Error while moving/removing task: not a valid path variable."}
 		}
 		stmt, par := prepare("SELECT remove_task(%v)", id, newPosition)
 		return createCommand(stmt, par...), nil
-	case lecturepatch.MOVE:
+	case jsonpatch.MOVE:
 		from := strings.Trim(op.From, "/")
 		fromParts := strings.Split(from, "/")
 		if len(fromParts) != 2 {
-			return nil, InvalidPatchError{"From is not valid."}
+			return nil, jsonpatch.InvalidPatchError{"From is not valid."}
 		}
 		oldPosition, err := strconv.Atoi(fromParts[1])
 		if err != nil {
-			return nil, InvalidPatchError{"From is not valid."}
+			return nil, jsonpatch.InvalidPatchError{"From is not valid."}
 		}
 		newPosition, err := strconv.Atoi(params["taskPosition"])
 		if err != nil {
-			return nil, InvalidPatchError{"Position is not valid."}
+			return nil, jsonpatch.InvalidPatchError{"Position is not valid."}
 		}
 		return createCommand("SELECT move_task($1,$2,$3)", id, oldPosition, newPosition), nil
 	default:
-		return nil, InvalidPatchError{fmt.Sprintf("Only remove  or move allowed for %s", op.Path)}
+		return nil, jsonpatch.InvalidPatchError{fmt.Sprintf("Only remove  or move allowed for %s", op.Path)}
 	}
 }
 
 //database checked
-func generateAddHint(id string, op *lecturepatch.Operation, params map[string]string) (*command, error) {
-	if op.Type != lecturepatch.ADD {
-		return nil, InvalidPatchError{fmt.Sprintf("Only add allowed for %s", op.Path)}
+func generateAddHint(id string, op *jsonpatch.Operation, params map[string]string) (jsonpatch.CommandContainer, error) {
+	if op.Type != jsonpatch.ADD {
+		return nil, jsonpatch.InvalidPatchError{fmt.Sprintf("Only add allowed for %s", op.Path)}
 	}
 	value := op.Value.(map[string]interface{})
 	stmt, par := prepare("SELECT add_hint(%v)", value["id"], id, value["position"], value["content"], value["cost"])
@@ -114,40 +114,40 @@ func generateAddHint(id string, op *lecturepatch.Operation, params map[string]st
 }
 
 //database checked
-func generateMoveOrRemoveHint(id string, op *lecturepatch.Operation, params map[string]string) (*command, error) {
+func generateMoveOrRemoveHint(id string, op *jsonpatch.Operation, params map[string]string) (jsonpatch.CommandContainer, error) {
 	switch op.Type {
-	case lecturepatch.REMOVE:
+	case jsonpatch.REMOVE:
 		position, err := strconv.Atoi(params["hintPosition"])
 		if err != nil {
-			return nil, InvalidPatchError{"Error while moving/removing hint: not a valid path vairable."}
+			return nil, jsonpatch.InvalidPatchError{"Error while moving/removing hint: not a valid path vairable."}
 		}
 		stmt, par := prepare("SELECT remove_hint(%v)", id, position)
 		return createCommand(stmt, par...), nil
-	case lecturepatch.MOVE:
+	case jsonpatch.MOVE:
 		from := strings.Trim(op.From, "/")
 		fromParts := strings.Split(from, "/")
 		if len(fromParts) != 2 {
-			return nil, InvalidPatchError{"From is not valid."}
+			return nil, jsonpatch.InvalidPatchError{"From is not valid."}
 		}
 		oldPosition, err := strconv.Atoi(fromParts[1])
 		if err != nil {
-			return nil, InvalidPatchError{"From is not valid."}
+			return nil, jsonpatch.InvalidPatchError{"From is not valid."}
 		}
 		newPosition, err := strconv.Atoi(params["hintPosition"])
 		if err != nil {
-			return nil, InvalidPatchError{"Position is not valid."}
+			return nil, jsonpatch.InvalidPatchError{"Position is not valid."}
 		}
 		stmt, par := prepare("SELECT move_hint(%v)", id, oldPosition, newPosition)
 		return createCommand(stmt, par...), nil
 	default:
-		return nil, InvalidPatchError{fmt.Sprintf("Only remove  or move allowed for %s", op.Path)}
+		return nil, jsonpatch.InvalidPatchError{fmt.Sprintf("Only remove  or move allowed for %s", op.Path)}
 	}
 }
 
 //database checked
-func generateUpdateHintContent(id string, op *lecturepatch.Operation, params map[string]string) (*command, error) {
-	if op.Type != lecturepatch.REPLACE {
-		return nil, InvalidPatchError{fmt.Sprintf("Only add allowed for %s", op.Path)}
+func generateUpdateHintContent(id string, op *jsonpatch.Operation, params map[string]string) (jsonpatch.CommandContainer, error) {
+	if op.Type != jsonpatch.REPLACE {
+		return nil, jsonpatch.InvalidPatchError{fmt.Sprintf("Only add allowed for %s", op.Path)}
 	}
 	position, err := strconv.Atoi(params["hintPosition"])
 	if err != nil {
@@ -158,9 +158,9 @@ func generateUpdateHintContent(id string, op *lecturepatch.Operation, params map
 }
 
 //database checked
-func generateUpdateHintCost(id string, op *lecturepatch.Operation, params map[string]string) (*command, error) {
-	if op.Type != lecturepatch.REPLACE {
-		return nil, InvalidPatchError{fmt.Sprintf("Only add allowed for %s", op.Path)}
+func generateUpdateHintCost(id string, op *jsonpatch.Operation, params map[string]string) (jsonpatch.CommandContainer, error) {
+	if op.Type != jsonpatch.REPLACE {
+		return nil, jsonpatch.InvalidPatchError{fmt.Sprintf("Only add allowed for %s", op.Path)}
 	}
 	position, err := strconv.Atoi(params["hintPosition"])
 	if err != nil {
@@ -171,9 +171,9 @@ func generateUpdateHintCost(id string, op *lecturepatch.Operation, params map[st
 }
 
 //database checked
-func generateUpdateTaskCommand(id string, op *lecturepatch.Operation, params map[string]string) (*command, error) {
-	if op.Type != lecturepatch.REPLACE {
-		return nil, InvalidPatchError{fmt.Sprintf("Only add allowed for %s", op.Path)}
+func generateUpdateTaskCommand(id string, op *jsonpatch.Operation, params map[string]string) (jsonpatch.CommandContainer, error) {
+	if op.Type != jsonpatch.REPLACE {
+		return nil, jsonpatch.InvalidPatchError{fmt.Sprintf("Only add allowed for %s", op.Path)}
 	}
 	position, err := strconv.Atoi(params["taskPosition"])
 	if err != nil {

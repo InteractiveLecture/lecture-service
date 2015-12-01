@@ -110,7 +110,7 @@ $$ LANGUAGE plpgsql;
 
 
 drop function move_module_tree(UUID,UUID,UUID[]);
-CREATE OR REPLACE FUNCTION move_module_tree(in_context_id UUID, module_id UUID, in_new_parent_ids VARIADIC UUID[]) 
+CREATE OR REPLACE FUNCTION move_module_tree(in_context_id UUID, in_module_id UUID, in_new_parent_ids VARIADIC UUID[]) 
 RETURNS void AS $$
 DECLARE 
 parent_level int;
@@ -121,26 +121,25 @@ BEGIN
   SET CONSTRAINTS ALL DEFERRED;
   PERFORM check_topic_context(in_context_id,in_module_id);
   if array_length(in_new_parent_ids,1) = 0 then -- the moving module should be the new root.
-    select module_trees.id into old_root_id from module_trees where topic_id = (select topic_id from modules where id = module_id) AND level = 0;
-    insert into module_parents values(old_root_id, module_id); -- the old root is now its first child.
-    delete from module_parents where child_id = module_id;
+    select module_trees.id into old_root_id from module_trees where topic_id = (select topic_id from modules where id = in_module_id) AND level = 0;
+    insert into module_parents values(old_root_id, in_module_id); -- the old root is now its first child.
+    delete from module_parents where child_id = in_module_id;
   else
-    if exists( select 1 from (select unnest (paths) as paths from module_trees where id = new_parent_id )t where paths like '%'||module_id||'%') then
-      raise notice 'found path';
-      select module_trees.level into module_level from module_trees where id = module_id;
+    if exists( select 1 from (select unnest (paths) as paths from module_trees where id = new_parent_id )t where paths like '%'||in_module_id||'%') then
+      select module_trees.level into module_level from module_trees where id = in_module_id;
       foreach new_parent_id in ARRAY in_new_parent_ids
       loop
         select module_trees.level into parent_level from module_trees where id = new_parent_id;
         if parent_level > module_level then
-          RAISE EXCEPTION 'Parent-Child cyclus. moduleID --> % parentID -->%', module_id, new_parent_id
+          RAISE EXCEPTION 'Parent-Child cyclus. moduleID --> % parentID -->%', in_module_id, new_parent_id
           USING HINT = 'Please check the levels of module and new parent.';
         end if;
       end loop;
     end if;
-    delete from module_parents where child_id = module_id;
+    delete from module_parents where child_id = in_module_id;
     foreach new_parent_id in ARRAY in_new_parent_ids 
     loop
-      insert into module_parents values(module_id,new_parent_id);
+      insert into module_parents values(in_module_id,new_parent_id);
     end loop;
   end if;
 END;
@@ -163,7 +162,7 @@ BEGIN
   if old_parent is null then 
     select array_agg(child_id::UUID) into root_siblings from module_parents where parent_id = in_module_id;
     if array_length(root_siblings,1) > 1 then
-      update module_parents set parent_id = root_siblings[1] where parent_id = module_id and child_id <> root_siblings[1];
+      update module_parents set parent_id = root_siblings[1] where parent_id = in_module_id and child_id <> root_siblings[1];
     end if;
   else
     update module_parents set parent_id = old_parent where parent_id = in_module_id;

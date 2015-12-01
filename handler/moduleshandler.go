@@ -7,7 +7,6 @@ import (
 	"github.com/InteractiveLecture/id-extractor"
 	"github.com/richterrettich/lecture-service/models"
 	"github.com/richterrettich/lecture-service/paginator"
-	"github.com/richterrettich/lecture-service/repositories"
 )
 
 func ModulesTreeHandler(factory repositories.ModuleRepositoryFactory, extractor idextractor.Extractor) http.Handler {
