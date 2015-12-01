@@ -1,53 +1,71 @@
 
 
 --TODO unit test
+drop function add_topic(UUID,varchar,text,UUID[]);
+CREATE OR REPLACE FUNCTION add_topic(in_topic_id UUID,in_name varchar, in_new_description text, officers VARIADIC UUID[]) 
+RETURNS void AS $$
+  insert into topics(id,name,description,version) values(in_topic_id,in_name,in_new_description,1);
+  insert into topic_authority(user_id, topic_id, kind)
+    select unnest(officers), in_topic_id,'OFFICER';
+  insert into topic_balances (user_id,topic_id,amount) 
+    select distinct user_id, in_topic_id,100 from topic_balances;
+$$ LANGUAGE sql;
+
+
+--TODO unit test
+drop function add_user(UUID);
+CREATE OR REPLACE FUNCTION add_user(in_user_id UUID) 
+RETURNS void AS $$
+  insert into topic_balances (topic_id,user_id,amount) 
+    select distinct topic_id,in_user_id,100 from topic_balances;
+$$ LANGUAGE sql;
+
+--TODO unit test
+drop function remove_user(UUID);
+CREATE OR REPLACE FUNCTION remove_user(in_user_id UUID) 
+RETURNS void AS $$
+  delete from topic_balances where user_id = in_user_id;
+$$ LANGUAGE sql;
+
+
+--TODO unit test
 drop function remove_officer(UUID,UUID);
 CREATE OR REPLACE FUNCTION remove_officer(in_topic_id UUID,in_user_id UUID) 
 RETURNS void AS $$
-BEGIN
   delete from topic_authority where topic_id = in_topic_id AND user_id = in_user_id AND kind = 'OFFICER';
-END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE sql;
 
 
 --TODO unit test
 drop function remove_assistant(UUID,UUID);
 CREATE OR REPLACE FUNCTION remove_assistant(in_topic_id UUID,in_user_id UUID) 
 RETURNS void AS $$
-BEGIN
   delete from topic_authority where topic_id = in_topic_id AND user_id = in_user_id AND kind = 'ASSISTANT';
-END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE sql;
 
 
 --TODO unit test
 drop function add_assistant(UUID,UUID);
 CREATE OR REPLACE FUNCTION add_assistant(in_topic_id UUID,in_user_id UUID) 
 RETURNS void AS $$
-BEGIN
   insert into topic_authority(topic_id,user_id,kind) values(in_topic_id,in_topic_id,'ASSISTANT');
-END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE sql;
 
 
 --TODO unit test
 drop function add_officer(UUID,UUID);
 CREATE OR REPLACE FUNCTION add_officer(in_topic_id UUID,in_user_id UUID) 
 RETURNS void AS $$
-BEGIN
   insert into topic_authority(topic_id,user_id,kind) values(in_topic_id,in_topic_id,'OFFICER');
-END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE sql;
 
 
 --TODO unit test
 drop function replace_topic_description(UUID,text);
 CREATE OR REPLACE FUNCTION replace_topic_description(in_topic_id UUID,in_new_description text) 
 RETURNS void AS $$
-BEGIN
   UPDATE topics set description = in_new_description where id = in_topic_id;
-END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE sql;
 
 
 

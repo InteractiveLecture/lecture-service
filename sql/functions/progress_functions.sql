@@ -18,18 +18,46 @@ BEGIN
   inner join modules m on e.module_id = m.id
   inner join topics t on t.id = m.topic_id
   where e.id = in_exercise_id;
+  if  beaten_exercises > 2 then
+    insert into module_progress_histories(user_id,module_id,reward,time) values(in_user_id,exercise_module_id,300,no());
+    sum_points = sum_points + 300;
+  end if;
+  update topic_balances set amount = amount + sum_points where user_id = in_user_id AND topic_id = exercise_topic_id;
+END;
+$$ LANGUAGE plpgsql;
 
-  CASE 
-    when beaten_exercises == 0 then
-      insert into topic_balances(user_id,topic_id,amount) values(in_user_id,exercise_topic_id,sum_points);
-    when beaten_exercises BETWEEN 1 AND 2 then 
-      update topic_balances set amount = amount + sum_points where user_id = in_user_id AND topic_id = exercise_topic_id;
-    when beaten_exercises > 2 then
-      insert into module_progress_histories(user_id,module_id,reward,time) values(in_user_id,exercise_module_id,300,no());
-      sum_points = sum_points + 300;
-      update topic_balances set amount = amount + sum_points where user_id = in_user_id AND topic_id = exercise_topic_id;
-  end case;
 
+--TODO unit test
+drop function purchase_hint(UUID,UUID);
+CREATE OR REPLACE FUNCTION purchase_hint(in_hint_id UUID, in_user_id UUID) 
+RETURNS int AS $$
+DECLARE
+hint_cost int;
+user_balance int;
+hint_topic_id UUID;
+BEGIN
+  if exists(select 1 from hint_purchase_histories where user_id = in_user_id AND hint_id = in_hint_id) then
+    return 2;
+  end if;
+
+  if not exists(select 1 from hints where id = in_hint_id) then
+    return 3;
+  end if;
+  select tb.balance, h.cost ,tb.topic_id into user_balance , hint_cost , hint_topic_id 
+  from topic_balances tb 
+  inner join modules m on m.topic_id = tb.topic_id
+  inner join exercises e on e.module_id = m.id
+  inner join hints h on h.exercise_id = e.id
+  where tb.user_id = in_user_id  AND h.id = in_hint_id;
+
+  if user_balance < hint_cost then
+    return 1;
+  end if;
+
+  insert into hint_purchase_histories(user_id,hint_id,amount,time) values(in_user_id,in_hint_id,hint_cost,now());
+
+  update topic_balances set balance = balance - hint_cost where user_id = in_user_id AND topic_id = hint_topic_id;
+  return 0;
 END;
 $$ LANGUAGE plpgsql;
 

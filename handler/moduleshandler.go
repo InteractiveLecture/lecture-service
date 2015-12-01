@@ -1,87 +1,78 @@
 package handler
 
 import (
-	"encoding/json"
+	"bytes"
+	"io"
+	"log"
 	"net/http"
 
 	"github.com/InteractiveLecture/id-extractor"
-	"github.com/richterrettich/lecture-service/models"
+	"github.com/richterrettich/jsonpatch"
+	"github.com/richterrettich/lecture-service/datamapper"
+	"github.com/richterrettich/lecture-service/lecturepatch"
 	"github.com/richterrettich/lecture-service/paginator"
 )
 
-func ModulesTreeHandler(factory repositories.ModuleRepositoryFactory, extractor idextractor.Extractor) http.Handler {
+func ModulesTreeHandler(mapper *datamapper.DataMapper, extractor idextractor.Extractor) http.Handler {
 	handlerFunc := func(w http.ResponseWriter, r *http.Request) int {
-		repository := factory.CreateRepository()
-		defer repository.Close()
 		id, err := extractor(r)
 		if err != nil {
+			log.Println("error with extractor")
 			return http.StatusBadRequest
 		}
 		dr, err := paginator.ParseDepth(r.URL)
 		if err != nil {
+			log.Println("error parsing depth request")
 			return http.StatusInternalServerError
 		}
-		result, err := repository.GetByLectureId(id, dr)
+		result, err := mapper.GetModuleRange(id, dr)
 		if err != nil {
 			return http.StatusInternalServerError
 		}
-		err = json.NewEncoder(w).Encode(result)
+		reader := bytes.NewReader(result)
+		_, err = io.Copy(w, reader)
 		if err != nil {
-			return http.StatusInternalServerError
+			log.Println(err)
 		}
 		return -1
 	}
 	return createHandler(handlerFunc)
 }
 
-func ModulesDeleteHandler(factory repositories.ModuleRepositoryFactory, extractor idextractor.Extractor) http.Handler {
+func ModulesGetHandler(mapper *datamapper.DataMapper, extractor idextractor.Extractor) http.Handler {
 	handlerFunc := func(w http.ResponseWriter, r *http.Request) int {
-		repository := factory.CreateRepository()
-		defer repository.Close()
-		id := extractor(r)
-		var children = make([]models.Module, 0)
-		return -1
-	}
-	return createHandler(handlerFunc)
-}
-
-func ModulesGetHandler(factory repositories.ModuleRepositoryFactory, extractor idextractor.Extractor) http.Handler {
-	handlerFunc := func(w http.ResponseWriter, r *http.Request) int {
-		repo := factory.CreateRepository()
-		defer repo.Close()
 		id, err := extractor(r)
 		if err != nil {
 			return http.StatusInternalServerError
 		}
-		module, err := repo.GetOne(id)
+		result, err := mapper.GetOneModule(id)
 		if err != nil {
 			return http.StatusNotFound
 		}
-		err = json.NewEncoder(w).Encode(module)
+		reader := bytes.NewReader(result)
+		_, err = io.Copy(w, reader)
 		if err != nil {
-			return http.StatusInternalServerError
+			log.Println(err)
 		}
 		return -1
 	}
 	return createHandler(handlerFunc)
 }
 
-func ModulesCreateHandler(factory repositories.ModuleRepositoryFactory, extractor idextractor.Extractor) http.Handler {
+func ModulesPatchHandler(mapper *datamapper.DataMapper, extractor idextractor.Extractor) http.Handler {
 	handlerFunc := func(w http.ResponseWriter, r *http.Request) int {
-		repository := factory.CreateRepository()
-		defer repository.Close()
-		m := &models.Module{}
-		err := json.NewDecoder(r.Body).Decode(m)
-		if err != nil {
-			return http.StatusBadRequest
-		}
-		err = models.Validate(m)
-		if err != nil {
-			return http.StatusBadRequest
-		}
-		err = repository.Create(m)
+		id, err := extractor(r)
 		if err != nil {
 			return http.StatusInternalServerError
+		}
+		patch, err := jsonpatch.Decode(r.Body)
+		if err != nil {
+			return http.StatusBadRequest
+		}
+		compiler := lecturepatch.ForModules()
+		err = mapper.ApplyPatch(id, patch, compiler)
+		if err != nil {
+			return http.StatusBadRequest
 		}
 		return -1
 	}

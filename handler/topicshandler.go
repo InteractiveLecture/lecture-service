@@ -8,25 +8,25 @@ import (
 	"net/http"
 
 	"github.com/InteractiveLecture/id-extractor"
+	"github.com/richterrettich/jsonpatch"
+	"github.com/richterrettich/lecture-service/datamapper"
 	"github.com/richterrettich/lecture-service/lecturepatch"
-	"github.com/richterrettich/lecture-service/models"
 	"github.com/richterrettich/lecture-service/paginator"
 )
 
-func TopicCollectionHandler(factory repositories.TopicRepositoryFactory) http.Handler {
+func TopicCollectionHandler(mapper *datamapper.DataMapper) http.Handler {
 	handlerFunc := func(w http.ResponseWriter, r *http.Request) int {
-		repository := factory.CreateRepository()
-		defer repository.Close()
 		pageRequest, err := paginator.ParsePages(r.URL)
 		if err != nil {
 			return http.StatusInternalServerError
 		}
-		result, err := repository.GetAll(pageRequest)
+		result, err := mapper.GetTopicsPage(pageRequest)
 		if err != nil {
+			log.Println(err)
 			return http.StatusInternalServerError
 		}
 		reader := bytes.NewReader(result)
-		_, err := io.Copy(w, reader)
+		_, err = io.Copy(w, reader)
 		if err != nil {
 			log.Println(err)
 		}
@@ -35,15 +35,13 @@ func TopicCollectionHandler(factory repositories.TopicRepositoryFactory) http.Ha
 	return createHandler(handlerFunc)
 }
 
-func TopicFindHandler(factory repositories.TopicRepositoryFactory, extractor idextractor.Extractor) http.Handler {
+func TopicFindHandler(mapper *datamapper.DataMapper, extractor idextractor.Extractor) http.Handler {
 	handlerFunc := func(w http.ResponseWriter, r *http.Request) int {
-		repository := factory.CreateRepository()
-		defer repository.Close()
 		id, err := extractor(r)
 		if err != nil {
 			return http.StatusInternalServerError
 		}
-		result, err := repository.GetOne(id)
+		result, err := mapper.GetOneTopic(id)
 		if err != nil {
 			return http.StatusNotFound
 		}
@@ -57,78 +55,45 @@ func TopicFindHandler(factory repositories.TopicRepositoryFactory, extractor ide
 	return createHandler(handlerFunc)
 }
 
-func TopicCreateHandler(factory repositories.TopicRepositoryFactory) http.Handler {
+func TopicCreateHandler(mapper *datamapper.DataMapper) http.Handler {
 	handlerFunc := func(w http.ResponseWriter, r *http.Request) int {
-		repository := factory.CreateRepository()
-		defer repository.Close()
-		var topic *models.Topic
+		var topic = make(map[string]interface{})
 		err := json.NewDecoder(r.Body).Decode(topic)
 		if err != nil {
 			return http.StatusBadRequest
 		}
-		err = models.Validate(topic)
+		err = mapper.CreateTopic(topic)
 		if err != nil {
-			return http.StatusBadRequest
-		}
-
-		id, err := repository.Create(topic)
-		if err != nil {
-			return http.StatusInternalServerError
+			return http.StatusBadRequest // TODO it could be an internal server error as well. need distinction
 		}
 		w.WriteHeader(http.StatusCreated)
-		w.Header().Set("Location", id)
 		return -1
 	}
 	return createHandler(handlerFunc)
 }
 
-func TopicPatchHandler(factory repositories.TopicRepositoryFactory, extractor idextractor.Extractor) http.Handler {
+func TopicPatchHandler(mapper *datamapper.DataMapper, extractor idextractor.Extractor) http.Handler {
 	handlerFunc := func(w http.ResponseWriter, r *http.Request) int {
-		repository := factory.CreateRepository()
-		defer repository.Close()
 		id, err := extractor(r)
 		if err != nil {
 			return http.StatusInternalServerError
 		}
-		patch, err := lecturepatch.Decode(r.Body)
+		patch, err := jsonpatch.Decode(r.Body)
 		if err != nil {
 			return http.StatusBadRequest
 		}
-		err = repository.Update(id, patch)
+		compiler := lecturepatch.ForTopics()
+		err = mapper.ApplyPatch(id, patch, compiler)
 		if err != nil {
-			return http.StatusInternalServerError
+			return http.StatusBadRequest
 		}
 		return -1
 	}
 	return createHandler(handlerFunc)
 }
 
-func TopicAddOfficersHandler(factory repositories.TopicRepositoryFactory, extractor idextractor.Extractor) http.Handler {
+func TopicAddOfficerHandler(mapper *datamapper.DataMapper, extractor idextractor.Extractor) http.Handler {
 	handlerFunc := func(w http.ResponseWriter, r *http.Request) int {
-		repository := factory.CreateRepository()
-		defer repository.Close()
-		id, err := extractor(r)
-		if err != nil {
-			return http.StatusInternalServerError
-		}
-		var officer string
-		err = json.NewDecoder(r.Body).Decode(officer)
-		if err != nil {
-			return http.StatusBadRequest
-		}
-		err = repository.AddOfficer(id, officer)
-		if err != nil {
-			return http.StatusInternalServerError
-		}
-		return -1
-	}
-	return createHandler(handlerFunc)
-}
-
-func TopicRemoveOfficersHandler(factory repositories.TopicRepositoryFactory, extractor idextractor.Extractor) http.Handler {
-	handlerFunc := func(w http.ResponseWriter, r *http.Request) int {
-		repository := factory.CreateRepository()
-		defer repository.Close()
 		id, err := extractor(r)
 		if err != nil {
 			return http.StatusInternalServerError
@@ -138,7 +103,27 @@ func TopicRemoveOfficersHandler(factory repositories.TopicRepositoryFactory, ext
 		if err != nil {
 			return http.StatusBadRequest
 		}
-		err = repository.RemoveOfficers(id, officer)
+		err = mapper.AddOfficer(id, officer)
+		if err != nil {
+			return http.StatusInternalServerError
+		}
+		return -1
+	}
+	return createHandler(handlerFunc)
+}
+
+func TopicRemoveOfficerHandler(mapper *datamapper.DataMapper, extractor idextractor.Extractor) http.Handler {
+	handlerFunc := func(w http.ResponseWriter, r *http.Request) int {
+		id, err := extractor(r)
+		if err != nil {
+			return http.StatusInternalServerError
+		}
+		var officer string
+		err = json.NewDecoder(r.Body).Decode(officer)
+		if err != nil {
+			return http.StatusBadRequest
+		}
+		err = mapper.RemoveOfficer(id, officer)
 		if err != nil {
 			return http.StatusInternalServerError
 		}

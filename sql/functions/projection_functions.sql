@@ -2,8 +2,8 @@ drop function if exists query_topics(integer,integer);
 drop function if exists get_topic(UUID);
 drop function if exists get_module_tree(UUID,int,int);
 
-CREATE OR REPLACE FUNCTION query_topics(skip int, query_limit int)  returns table(jsonresult json) AS $$
-select row_to_json(o1)
+CREATE OR REPLACE FUNCTION query_topics(skip int, query_limit int)  returns json AS $$
+select to_json(array_agg(row_to_json(o1)))
 from(
   select t.id, t.name, t.description, t.version,(
     select array_agg(row_to_json(d)) 
@@ -184,5 +184,26 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+
+DROP FUNCTION IF EXISTS get_hint(UUID,UUID);
+CREATE OR REPLACE FUNCTION get_hint(in_user_id UUID,in_hint_id UUID)  returns json AS $$
+DECLARE
+result json;
+BEGIN
+  if EXISTS( select 1 from hint_purchas_histories where user_id = in_user_id AND hint_id = in_hint_id) OR  
+    EXISTS(select 1 
+    from topic_authority ta inner join topics t on ta.topic_id = t.id 
+    inner join modules m on t.id = m.topic_id
+    inner join exercises e on e.module_id = m.id
+    inner join hints h on h.exercise_id = e. id 
+    where ta.user_id = in_user_id AND h.id = in_hint_id)
+  then
+  select row_to_json(o1)  into result from(
+    select id, exercise_id, position, content, cost from hints where id = in_hint_id
+  ) o1;
+  end if;
+  return result;
+END;
+$$ LANGUAGE plpgsql;
 
 
