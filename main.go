@@ -35,14 +35,68 @@ func main() {
 
 	extractor := idextractor.MuxIdExtractor("id")
 	r := mux.NewRouter()
+
+	//TOPICS
 	r.Path("/topics").
 		Methods("GET").
 		Handler(handler.TopicCollectionHandler(mapper))
+	r.Path("/topics").
+		Methods("POST").
+		Handler(handler.TopicCreateHandler(mapper))
 	r.Path("/topics/{id}").
 		Methods("GET").
 		Handler(handler.TopicFindHandler(mapper, extractor))
+	r.Path("/topics/{id}").
+		Methods("PATCH").
+		Handler(handler.TopicPatchHandler(mapper, extractor))
+	r.Path("/topics/{id}/officers").
+		Methods("POST").
+		Handler(handler.TopicAddOfficerHandler(mapper, extractor))
+	r.Path("/topics/{id}/officers").
+		Methods("DELETE").
+		Handler(handler.TopicRemoveOfficerHandler(mapper, extractor))
 
-	r.Path("/topics/{id}/modules").Methods("GET").Handler(handler.ModulesTreeHandler(mapper, extractor))
+	//MODULES
+	r.Path("/topics/{id}/modules").
+		Methods("GET").
+		Handler(handler.
+		ModulesTreeHandler(mapper, extractor))
+	r.Path("/modules/{id}").
+		Methods("GET").
+		Handler(handler.ModulesGetHandler(mapper, extractor))
+	r.Path("/modules/{id}").
+		Methods("PATCH").
+		Handler(handler.ModulesPatchHandler(mapper, extractor))
 
+	//EXERCISES
+	r.Path("/exercises/{id}").
+		Methods("POST").
+		Handler(handler.CompleteExerciseHandler(mapper, extractor))
+	r.Path("/hints/{id}").
+		Methods("GET").
+		Handler(handler.GetHintHandler(mapper, extractor))
+	r.Path("/hints/{id}").
+		Methods("POST").
+		Handler(handler.PurchaseHintHandler(mapper, extractor))
+	//TODO route for GetOneExercise
+
+	//HISTORIES AND PROGRESS
+	r.Path("/users/{id}/hints").
+		Methods("GET").
+		Handler(handler.HintHistoryHandler(mapper, extractor))
+	r.Path("/users/{id}/modules").
+		Methods("GET").
+		Handler(handler.CurrentModulesForUserHandler(mapper, extractor))
+	r.Path("/users/{id}/modules/current").
+		Methods("GET").
+		Handler(handler.NextModuleForUserHandler(mapper, extractor))
+	r.Path("/users/{id}/modules/next").
+		Methods("GET").
+		Handler(handler.ModuleHistoryHandler(mapper, extractor))
+	r.Path("/users/{id}/exercises").
+		Methods("POST").
+		Handler(handler.ExerciseHistoryHandler(mapper, extractor))
+
+	log.Println("listening on port 8080")
 	log.Fatal(http.ListenAndServe(":8080", r))
 }

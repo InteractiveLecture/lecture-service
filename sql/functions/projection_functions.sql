@@ -85,15 +85,15 @@ DECLARE
 result json;
 BEGIN
   select row_to_json(o1)  into result from(
-    select m.id,m.level,m.paths, m.description,m.topic_id,m.video_id,m.script_id,(
+    select m.id,m.level,m.paths, m.description,m.topic_id,m.video_id,m.script_id,m.children,(
       select array_agg(row_to_json(exercises_aggregator)) from ( --aggregate exercises
         select ex.id, ex.backend, ex.version, (
           select array_agg(row_to_json(parts_aggregator)) from(
-            select ta.id, ta.task from tasks ta where ta.exercise_id = ex.id 
+            select ta.content from tasks ta where ta.exercise_id = ex.id order by position
           ) parts_aggregator
           ) as parts, (
           select array_agg(row_to_json(hints_aggregator)) from (
-            select hi.id from hints hi where hi.exercise_id = ex.id
+            select hi.id from hints hi where hi.exercise_id = ex.id order by position
           ) hints_aggregator
         ) as hint_ids
         from exercises ex where ex.module_id = m.id
@@ -132,8 +132,9 @@ BEGIN
     select h.user_id, h.hint_id, h.amount, h.time 
     from hint_purchas_history h 
     where h.user_id = in_user_id
+    ORDER BY h.time
     LIMIT in_limit
-    OFFSET in_offset
+    OFFSET in_skip
   ) o1;
   return result;
 END;
@@ -142,8 +143,8 @@ $$ LANGUAGE plpgsql;
 
 
 
-DROP FUNCTION IF EXISTS get_module_progress(UUID,int,int);
-CREATE OR REPLACE FUNCTION get_module_progress(in_user_id UUID,in_limit int,in_skip int)  returns json AS $$
+DROP FUNCTION IF EXISTS get_module_history(UUID,int,int);
+CREATE OR REPLACE FUNCTION get_module_history(in_user_id UUID,in_limit int,in_skip int)  returns json AS $$
 DECLARE
 result json;
 BEGIN
@@ -151,16 +152,17 @@ BEGIN
     select h.user_id, h.module_id, h.reward, m.description, h.time
     from module_progress_histories h inner join modules m on h.module_id = m.id
     where h.user_id = in_user_id
+    ORDER BY h.time
     LIMIT in_limit
-    OFFSET in_offset
+    OFFSET in_skip
   ) o1;
   return result;
 END;
 $$ LANGUAGE plpgsql;
 
 
-DROP FUNCTION IF EXISTS get_exercise_progress(UUID,int,int);
-CREATE OR REPLACE FUNCTION get_exercise_progress(in_user_id UUID,in_limit int,in_skip int)  returns json AS $$
+DROP FUNCTION IF EXISTS get_exercise_history(UUID,int,int);
+CREATE OR REPLACE FUNCTION get_exercise_history(in_user_id UUID,in_limit int,in_skip int)  returns json AS $$
 DECLARE
 result json;
 BEGIN
@@ -168,8 +170,9 @@ BEGIN
     select h.user_id, h.exercise_id, h.reward,h.time 
     from exercise_progress_histories h 
     where h.user_id = in_user_id
+    ORDER BY h.time
     LIMIT in_limit
-    OFFSET in_offset
+    OFFSET in_skip
   ) o1;
   return result;
 END;
@@ -208,6 +211,25 @@ BEGIN
       select id, exercise_id, position, content, cost from hints where id = in_hint_id
     ) o1;
   end if;
+  return result;
+END;
+$$ LANGUAGE plpgsql;
+
+
+
+DROP FUNCTION IF EXISTS get_next_modules_for_user(UUID);
+CREATE OR REPLACE FUNCTION get_next_modules_for_user(in_user_id UUID)  returns json AS $$
+DECLARE
+result json;
+BEGIN
+  
+  select * 
+  from module_progress_histories mh 
+    inner join exercises e on e.module_id = mh.module_id
+    right join exercise_progress_histories eh on e.id = eh.exercise_id
+    where mh.module_id is null
+    and eh.user_id = in_user_id
+
   return result;
 END;
 $$ LANGUAGE plpgsql;
