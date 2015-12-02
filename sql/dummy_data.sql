@@ -133,3 +133,43 @@ insert into hints values (uuid_generate_v3(uuid_ns_url(),'hint_2'),uuid_generate
 insert into exercises values (uuid_generate_v3(uuid_ns_url(),'exercise_2'),uuid_generate_v3(uuid_ns_url(),'module_1'),'java',1);
 insert into exercises values (uuid_generate_v3(uuid_ns_url(),'exercise_3'),uuid_generate_v3(uuid_ns_url(),'module_1'),'java',1);
 
+
+insert into exercises values (uuid_generate_v3(uuid_ns_url(),'exercise_4'),uuid_generate_v3(uuid_ns_url(),'module_2'),'java',1);
+insert into exercises values (uuid_generate_v3(uuid_ns_url(),'exercise_5'),uuid_generate_v3(uuid_ns_url(),'module_2'),'java',1);
+
+-- topic balances
+
+insert into topic_balances(user_id,topic_id,amount) 
+select uuid_generate_v3(uuid_ns_url(),'user_3') as user_id, id, 100 from topics;
+
+
+insert into topic_balances(user_id,topic_id,amount) 
+select uuid_generate_v3(uuid_ns_url(),'user_4') as user_id, id, 100 from topics;
+
+-- module progress begin
+insert into module_progress_histories(user_id,module_id,amount,state,time) values(uuid_generate_v3(uuid_ns_url(),'user_4'),uuid_generate_v3(uuid_ns_url(),'module_1'),0,1,now());  
+
+insert into exercise_progress_histories(user_id,exercise_id,amount,state,time) values(uuid_generate_v3(uuid_ns_url(),'user_4'),uuid_generate_v3(uuid_ns_url(),'exercise_1'),0,1,now());
+
+insert into exercise_progress_histories(user_id,exercise_id,amount,state,time) values(uuid_generate_v3(uuid_ns_url(),'user_4'),uuid_generate_v3(uuid_ns_url(),'exercise_2'),0,1,now());
+
+insert into exercise_progress_histories(user_id,exercise_id,amount,state,time) values(uuid_generate_v3(uuid_ns_url(),'user_4'),uuid_generate_v3(uuid_ns_url(),'exercise_3'),0,1,now());
+
+
+insert into module_progress_histories(user_id,module_id,amount,state,time) values(uuid_generate_v3(uuid_ns_url(),'user_4'),uuid_generate_v3(uuid_ns_url(),'module_2'),0,1,now());  
+insert into exercise_progress_histories(user_id,exercise_id,amount,state,time) values(uuid_generate_v3(uuid_ns_url(),'user_4'),uuid_generate_v3(uuid_ns_url(),'exercise_4'),0,1,now());
+
+
+insert into module_progress_histories(user_id,module_id,amount,state,time) values(uuid_generate_v3(uuid_ns_url(),'user_3'),uuid_generate_v3(uuid_ns_url(),'module_1'),0,1,now());  
+
+
+insert into module_progress_histories(user_id,module_id,amount,state,time) values(uuid_generate_v3(uuid_ns_url(),'user_3'),uuid_generate_v3(uuid_ns_url(),'module_1'),300,2,now());  
+-- module progress end
+insert into module_progress_histories(user_id,module_id,amount,state,time) values(uuid_generate_v3(uuid_ns_url(),'user_4'),uuid_generate_v3(uuid_ns_url(),'module_1'),300,2,now());  
+
+insert into exercise_progress_histories(user_id,exercise_id,amount,state,time) values(uuid_generate_v3(uuid_ns_url(),'user_4'),uuid_generate_v3(uuid_ns_url(),'exercise_1'),100,2,now());
+
+insert into exercise_progress_histories(user_id,exercise_id,amount,state,time) values(uuid_generate_v3(uuid_ns_url(),'user_4'),uuid_generate_v3(uuid_ns_url(),'exercise_2'),100,2,now());
+
+insert into exercise_progress_histories(user_id,exercise_id,amount,state,time) values(uuid_generate_v3(uuid_ns_url(),'user_4'),uuid_generate_v3(uuid_ns_url(),'exercise_3'),100,2,now());
+insert into exercise_progress_histories(user_id,exercise_id,amount,state,time) values(uuid_generate_v3(uuid_ns_url(),'user_4'),uuid_generate_v3(uuid_ns_url(),'exercise_4'),100,2,now());

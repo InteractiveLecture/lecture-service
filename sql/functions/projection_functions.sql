@@ -216,20 +216,39 @@ END;
 $$ LANGUAGE plpgsql;
 
 
+/*
+DROP FUNCTION IF EXISTS get_current_modules_for_user(UUID);
+CREATE OR REPLACE FUNCTION get_current_modules_for_user(in_user_id UUID)  returns json AS $$
+DECLARE
+result json;
+BEGIN
+
+  select to_json(array_agg(row_to_json(o1))) into result from (
+    select h1.module_id,m.description,t.id,t.description
+    from module_progress_histories h1 inner join modules m on m.id = h1.module_id
+    inner join topics t on t.id = m.topic_id
+    where h1.state = 1 
+    AND h1.user_id = in_user_id 
+    AND NOT EXISTS(select 1 from module_progress_histories h2 where h1.module_id = h2.module_id and h2.state = 2)) o1;
+  return result;
+END;
+$$ LANGUAGE plpgsql;
+ */
 
 DROP FUNCTION IF EXISTS get_next_modules_for_user(UUID);
 CREATE OR REPLACE FUNCTION get_next_modules_for_user(in_user_id UUID)  returns json AS $$
 DECLARE
 result json;
 BEGIN
-  
-  select * 
-  from module_progress_histories mh 
-    inner join exercises e on e.module_id = mh.module_id
-    right join exercise_progress_histories eh on e.id = eh.exercise_id
-    where mh.module_id is null
-    and eh.user_id = in_user_id
-
+  select to_json(array_agg(row_to_json(o1))) into result from (
+    select mp.child_id as id,m.description,t.id as topic_id,t.name as topic_name
+    from module_progress_histories mh 
+    inner join module_parents mp on mp.parent_id = mh.module_id 
+    inner join modules m on m.id = mp.child_id 
+    inner join topics t on t.id = m.topic_id 
+    where mp.child_id not in (select module_id from module_progress_histories where state = 2) 
+    AND mh.state = 2 
+    AND mh.user_id = in_user_id) o1;
   return result;
 END;
 $$ LANGUAGE plpgsql;

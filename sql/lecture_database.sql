@@ -19,6 +19,7 @@ drop table if exists exercise_progress_histories cascade;
 drop table if exists module_progress_histories cascade;
 drop table if exists module_parents cascade;
 drop table if exists module_recommendations cascade;
+drop table if exists progress_state cascade;
 
 
 
@@ -88,21 +89,31 @@ create table hint_purchase_histories (
 );
 
 
+create table progress_state (
+  id int primary key,
+  description varchar NOT NULL
+);
+
+insert into progress_state(id,description) values(1,'BEGIN');
+insert into progress_state(id,description) values(2,'FINISH');
+
 create table module_progress_histories (
   user_id UUID,
   module_id UUID references modules(id) on delete cascade,
-  reward SMALLINT NOT NULL CHECK(reward > 0),
+  amount SMALLINT NOT NULL,
   time timestamp,
-  PRIMARY KEY (user_id,module_id)
+  state int references progress_state(id),
+  PRIMARY KEY (user_id,module_id,state)
 );
 
 
 create table exercise_progress_histories (
   user_id UUID,
   exercise_id UUID references exercises(id) on delete cascade,
-  reward SMALLINT NOT NULL CHECK(reward > 0 ),
+  amount SMALLINT NOT NULL,
   time timestamp,
-  PRIMARY KEY (user_id,exercise_id)
+  state int references progress_state(id),
+  PRIMARY KEY (user_id,exercise_id,state)
 );
 
 create table module_recommendations (
