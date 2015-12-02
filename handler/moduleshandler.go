@@ -15,6 +15,7 @@ import (
 
 func ModulesTreeHandler(mapper *datamapper.DataMapper, extractor idextractor.Extractor) http.Handler {
 	handlerFunc := func(w http.ResponseWriter, r *http.Request) int {
+		log.Println("Within ModulesTreeHandler")
 		id, err := extractor(r)
 		if err != nil {
 			log.Println("error with extractor")
@@ -25,8 +26,10 @@ func ModulesTreeHandler(mapper *datamapper.DataMapper, extractor idextractor.Ext
 			log.Println("error parsing depth request")
 			return http.StatusInternalServerError
 		}
+		log.Println(dr)
 		result, err := mapper.GetModuleRange(id, dr)
 		if err != nil {
+			log.Println(err)
 			return http.StatusInternalServerError
 		}
 		reader := bytes.NewReader(result)

@@ -36,7 +36,7 @@ func ParseDepth(u *url.URL) (dr DepthRequest, err error) {
 	if err != nil {
 		return
 	}
-	dr.Ancestors, err = strconv.Atoi(parsePart(u, "ancestors", "0"))
+	dr.Ancestors, err = strconv.Atoi(parsePart(u, "ancestors", "-1"))
 	if err != nil {
 		return
 	}

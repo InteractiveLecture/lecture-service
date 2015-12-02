@@ -31,43 +31,49 @@ END;
 $$ LANGUAGE plpgsql;
 
 
-CREATE OR REPLACE FUNCTION get_module_tree(in_topic_id UUID, upper_bound int, lower_bound int)  returns table(jsonresult json) AS $$
+CREATE OR REPLACE FUNCTION get_module_tree(in_topic_id UUID, upper_bound int, lower_bound int)  returns json AS $$
+DECLARE
+result json;
 BEGIN
 
-  if lower_bound is null AND upper_bound is null then
-    return QUERY select row_to_json(o1) 
+  if lower_bound = -1  AND upper_bound = -1 then
+    select to_json(array_agg(row_to_json(o1))) into result
     from(
       select m.id,m.level,m.paths, m.description,m.topic_id,m.video_id,m.script_id
       from module_trees m 
       where m.topic_id = in_topic_id 
     ) o1;
+    return result;
   end if;
 
+  if lower_bound = -1 then 
+    select to_json(array_agg(row_to_json(o1))) into result
+    from(
+      select m.id,m.level,m.paths, m.description,m.topic_id,m.video_id,m.script_id
+      from module_trees m 
+      where m.topic_id = in_topic_id AND m.level <= upper_bound 
+    ) o1;
 
-  if lower_bound is null then 
-    return QUERY select row_to_json(o1) 
+    return result;
+  end if;
+
+  if upper_bound = -1 then
+    select to_json(array_agg(row_to_json(o1))) into result
     from(
       select m.id,m.level,m.paths, m.description,m.topic_id,m.video_id,m.script_id
       from module_trees m 
       where m.topic_id = in_topic_id AND m.level >= lower_bound
     ) o1;
+    return result;
   end if;
 
-  if upper_bound is null then
-    return QUERY select row_to_json(o1) 
-    from(
-      select m.id,m.level,m.paths, m.description,m.topic_id,m.video_id,m.script_id
-      from module_trees m 
-      where m.topic_id = in_topic_id AND m.level >= lower_bound
-    ) o1;
-  end if;
-
-  return QUERY select row_to_json(o1) 
+  select to_json(array_agg(row_to_json(o1))) into result
   from(
     select m.id,m.level,m.paths, m.description,m.topic_id,m.video_id,m.script_id
     from module_trees m 
     where m.topic_id = in_topic_id AND m.level <= upper_bound AND m.level >= lower_bound
   ) o1;
+  return result;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -192,15 +198,15 @@ result json;
 BEGIN
   if EXISTS( select 1 from hint_purchas_histories where user_id = in_user_id AND hint_id = in_hint_id) OR  
     EXISTS(select 1 
-    from topic_authority ta inner join topics t on ta.topic_id = t.id 
-    inner join modules m on t.id = m.topic_id
-    inner join exercises e on e.module_id = m.id
-    inner join hints h on h.exercise_id = e. id 
-    where ta.user_id = in_user_id AND h.id = in_hint_id)
-  then
-  select row_to_json(o1)  into result from(
-    select id, exercise_id, position, content, cost from hints where id = in_hint_id
-  ) o1;
+      from topic_authority ta inner join topics t on ta.topic_id = t.id 
+      inner join modules m on t.id = m.topic_id
+      inner join exercises e on e.module_id = m.id
+      inner join hints h on h.exercise_id = e. id 
+      where ta.user_id = in_user_id AND h.id = in_hint_id)
+    then
+    select row_to_json(o1)  into result from(
+      select id, exercise_id, position, content, cost from hints where id = in_hint_id
+    ) o1;
   end if;
   return result;
 END;
