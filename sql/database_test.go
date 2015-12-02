@@ -178,6 +178,8 @@ func TestDeleteModuleTree(t *testing.T) {
 	assert.Equal(t, fmt.Sprintf("/%s/%s", modules["foo"].Id, modules["hugo"].Id), modules["hugo"].paths[0])
 }
 
+//Projection functions
+
 func getDirectParents(m module) []string {
 	var result = make([]string, 0)
 	for _, v := range m.paths {

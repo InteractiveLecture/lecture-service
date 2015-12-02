@@ -25,6 +25,7 @@ func GetHintHandler(mapper *datamapper.DataMapper, extractor idextractor.Extract
 			return http.StatusPaymentRequired
 		}
 		if err != nil {
+			log.Println("Error while processing hint ", err)
 			return http.StatusInternalServerError
 		}
 		reader := bytes.NewReader(result)

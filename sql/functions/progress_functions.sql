@@ -8,18 +8,18 @@ exercise_module_id UUID;
 exercise_topic_id UUID;
 sum_points int;
 BEGIN
-  insert into exercise_progress_histories(user_id,exercise_id,reward,time) values(in_user_id,in_exercise_id,100,now());
+  insert into exercise_progress_histories(user_id,exercise_id,reward,state,time) values(in_user_id,in_exercise_id,100,2,now());
   sum_points = 100;
-  select count(*) into beaten_exercises from exercise_progress_histories where user_id = in_user_id AND exercise_id = in_exercise_id;
+  select count(*) into beaten_exercises from exercise_progress_histories where user_id = in_user_id AND exercise_id = in_exercise_id AND state = 2;
 
   select m.module_id,t.topic_id 
   into exercise_module_id ,exercise_topic_id 
   from exercises e
   inner join modules m on e.module_id = m.id
   inner join topics t on t.id = m.topic_id
-  where e.id = in_exercise_id;
+  where e.id = in_exercise_id and state = 2;
   if  beaten_exercises > 2 then
-    insert into module_progress_histories(user_id,module_id,reward,time) values(in_user_id,exercise_module_id,300,no());
+    insert into module_progress_histories(user_id,module_id,reward,state,time) values(in_user_id,exercise_module_id,300,2,no());
     sum_points = sum_points + 300;
   end if;
   update topic_balances set amount = amount + sum_points where user_id = in_user_id AND topic_id = exercise_topic_id;

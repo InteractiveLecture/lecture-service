@@ -86,14 +86,17 @@ func main() {
 		Handler(handler.HintHistoryHandler(mapper, extractor))
 	r.Path("/users/{id}/modules").
 		Methods("GET").
-		Handler(handler.CurrentModulesForUserHandler(mapper, extractor))
-	r.Path("/users/{id}/modules/current").
-		Methods("GET").
-		Handler(handler.NextModuleForUserHandler(mapper, extractor))
+		Handler(handler.NextModulesForUserHandler(mapper, extractor))
+	r.Path("/users/{id}/modules/start").
+		Methods("POST").
+		Handler(handler.ModuleStartHandler(mapper, extractor))
 	r.Path("/users/{id}/modules/next").
 		Methods("GET").
 		Handler(handler.ModuleHistoryHandler(mapper, extractor))
 	r.Path("/users/{id}/exercises").
+		Methods("GET").
+		Handler(handler.ExerciseStartHandler(mapper, extractor))
+	r.Path("/users/{id}/exercises/start").
 		Methods("POST").
 		Handler(handler.ExerciseHistoryHandler(mapper, extractor))
 

@@ -24,7 +24,7 @@ type Config struct {
 
 func DefaultConfig() Config {
 	return Config{
-		User:     "lectureapp",
+		User:     "postgres",
 		Port:     5432,
 		Host:     "localhost",
 		Password: "",
