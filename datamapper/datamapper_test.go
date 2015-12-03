@@ -14,6 +14,7 @@ import (
 	"github.com/richterrettich/jsonpatch"
 	"github.com/richterrettich/lecture-service/lecturepatch"
 	"github.com/richterrettich/lecture-service/paginator"
+	"github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -182,7 +183,6 @@ func TestMoveSingle(t *testing.T) {
 	assert.Nil(t, err)
 }
 
-/*
 func TestMoveTree(t *testing.T) {
 	mapper, err := prepareMapper()
 	defer mapper.db.Close()
@@ -253,7 +253,6 @@ func TestInsertModule(t *testing.T) {
 	assert.Equal(t, modules["foo"].Id, getDirectParents(modules["bar"])[0])
 }
 
-/*
 func TestDeleteModule(t *testing.T) {
 	mapper, err := prepareMapper()
 	defer mapper.db.Close()
@@ -283,7 +282,6 @@ func TestDeleteModule(t *testing.T) {
 	assert.Nil(t, err)
 	_, err = db.Exec("REFRESH MATERIALIZED VIEW module_trees")
 	assert.Nil(t, err)
-
 	modules = getModules(t, db)
 	assert.Equal(t, 4, len(modules))
 	assert.Equal(t, modules["bla"].Id, getDirectParents(modules["blubb"])[0])
@@ -328,7 +326,7 @@ func getDirectParents(m module) []string {
 }
 
 func getModules(t *testing.T, db *sql.DB) map[string]module {
-	rows, err := db.Query(`SELECT id,description,level,paths, topic_id FROM module_trees`)
+	rows, err := db.Query(`SELECT id,description,level,paths, topic_id FROM module_trees order by level`)
 	assert.Nil(t, err)
 	defer rows.Close()
 	var id, description, paths, topicId string

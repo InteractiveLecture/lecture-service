@@ -111,6 +111,7 @@ BEGIN
       end loop;
     end if;
   end if;
+  REFRESH MATERIALIZED VIEW CONCURRENTLY module_trees;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -160,6 +161,7 @@ BEGIN
       insert into module_parents values(in_module_id,new_parent_id);
     end loop;
   end if;
+  REFRESH MATERIALIZED VIEW CONCURRENTLY module_trees;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -186,6 +188,7 @@ BEGIN
     update module_parents set parent_id = old_parent where parent_id = in_module_id;
   end if;
   delete from modules where id = in_module_id;
+  REFRESH MATERIALIZED VIEW CONCURRENTLY module_trees;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -203,6 +206,7 @@ BEGIN
     RAISE EXCEPTION 'Operation out of scope.';
   end if;
   delete from modules where  id in (select id from (select id, unnest (paths) as paths from module_trees )t where paths like '%'||in_module_id||'%');
+  REFRESH MATERIALIZED VIEW CONCURRENTLY module_trees;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -219,6 +223,7 @@ BEGIN
   loop
     insert into module_parents(child_id, parent_id) values(id,parent_id);
   end loop;
+  REFRESH MATERIALIZED VIEW CONCURRENTLY module_trees;
 END;
 $$ LANGUAGE plpgsql;
 
