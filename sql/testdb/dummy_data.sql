@@ -1,3 +1,5 @@
+\c lecture
+
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 truncate table topics cascade;
@@ -173,3 +175,14 @@ insert into exercise_progress_histories(user_id,exercise_id,amount,state,time) v
 
 insert into exercise_progress_histories(user_id,exercise_id,amount,state,time) values(uuid_generate_v3(uuid_ns_url(),'user_4'),uuid_generate_v3(uuid_ns_url(),'exercise_3'),100,2,now());
 insert into exercise_progress_histories(user_id,exercise_id,amount,state,time) values(uuid_generate_v3(uuid_ns_url(),'user_4'),uuid_generate_v3(uuid_ns_url(),'exercise_4'),100,2,now());
+
+
+
+insert into hint_purchase_histories(user_id,hint_id,amount,time) values(uuid_generate_v3(uuid_ns_url(),'user_4'),uuid_generate_v3(uuid_ns_url(),'hint_1'),100,now());
+
+insert into hint_purchase_histories(user_id,hint_id,amount,time) values(uuid_generate_v3(uuid_ns_url(),'user_3'),uuid_generate_v3(uuid_ns_url(),'hint_1'),100,now());
+
+
+
+
+REFRESH MATERIALIZED VIEW module_trees;

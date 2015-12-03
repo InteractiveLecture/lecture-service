@@ -12,7 +12,6 @@ import (
 )
 
 func main() {
-
 	dbHost := flag.String("dbhost", "localhost", "the database host")
 	dbPort := flag.Int("dbport", 5432, "the database port")
 	dbUser := flag.String("dbuser", "lectureapp", "the database user")
@@ -31,6 +30,10 @@ func main() {
 	mapper, err := datamapper.New(config)
 	if err != nil {
 		panic(err)
+	}
+
+	if testData {
+
 	}
 
 	extractor := idextractor.MuxIdExtractor("id")

@@ -1,3 +1,4 @@
+\c lecture
 --TODO unit test
 drop function add_hint(UUID,UUID, int,text,int);
 CREATE OR REPLACE FUNCTION add_hint(in_id UUID,in_exercise_id UUID, in_position int, in_content text, in_cost int) 

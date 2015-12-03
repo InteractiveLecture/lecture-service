@@ -1,3 +1,4 @@
+\c lecture
 --TODO unit test
 drop function complete_exercise(UUID,UUID);
 CREATE OR REPLACE FUNCTION complete_exercise(in_exercise_id UUID, in_user_id UUID) 

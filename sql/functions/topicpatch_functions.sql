@@ -1,4 +1,4 @@
-
+\c lecture
 
 --TODO unit test
 drop function add_topic(UUID,varchar,text,UUID[]);

@@ -1,3 +1,5 @@
+\c lecture
+
 drop materialized view if exists module_trees;
 
 create materialized view module_trees as 

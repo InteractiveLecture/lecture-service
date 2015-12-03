@@ -1,3 +1,4 @@
+\c lecture
 drop function if exists query_topics(integer,integer);
 drop function if exists get_topic(UUID);
 drop function if exists get_module_tree(UUID,int,int);

@@ -1,4 +1,4 @@
-
+\c lecture
 
 --TODO unit test
 drop function replace_module_description(UUID,text);

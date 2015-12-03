@@ -1,3 +1,4 @@
+\c lecture
 REVOKE ALL
 ON ALL TABLES IN SCHEMA public 
 FROM PUBLIC;

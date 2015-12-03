@@ -1,4 +1,4 @@
-package database
+package datamapper
 
 import (
 	"database/sql"
