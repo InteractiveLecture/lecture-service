@@ -19,7 +19,7 @@ type SqlCommandContainer struct {
 
 func (c *SqlCommandContainer) ExecuteMain(transaction interface{}) error {
 	tx := transaction.(*sql.Tx)
-	_, err := tx.Exec(c.statement, c.parameters)
+	_, err := tx.Exec(c.statement, c.parameters...)
 	return err
 }
 
