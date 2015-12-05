@@ -184,3 +184,4 @@ insert into hint_purchase_histories(user_id,hint_id,amount,time) values(uuid_gen
 
 
 REFRESH MATERIALIZED VIEW module_trees;
+REFRESH MATERIALIZED VIEW module_details;

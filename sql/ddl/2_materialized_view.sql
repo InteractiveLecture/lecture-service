@@ -19,3 +19,50 @@ children as (
 ALTER MATERIALIZED VIEW module_trees OWNER TO lectureapp; 
 create unique index module_trees_index on module_trees (id,level);
 
+DROP FUNCTION IF EXISTS get_exercises_as_json(UUID);
+CREATE OR REPLACE FUNCTION get_exercises_as_json(in_module_id UUID)  returns json AS $$
+select json_agg(exercises_aggregator) from ( --aggregate exercises
+  select ex.id, ex.backend, ex.version, (
+    select json_agg(parts_aggregator) from(
+      select ta.content from tasks ta where ta.exercise_id = ex.id order by position
+    ) parts_aggregator
+    ) as parts, (
+    select json_agg(hints_aggregator) from (
+      select hi.id from hints hi where hi.exercise_id = ex.id order by position
+    ) hints_aggregator
+  ) as hint_ids
+  from exercises ex where ex.module_id = in_module_id
+) exercises_aggregator;
+$$ LANGUAGE sql;
+
+DROP FUNCTION IF EXISTS get_recommendations_as_json(UUID);
+CREATE OR REPLACE FUNCTION get_recommendations_as_json(in_module_id UUID)  returns json AS $$
+select json_agg(recommendations_aggregator) from ( 
+  select r.recommended_id as id, m.description as description,t.id as topic_id, t.name as topic_name
+  from module_recommendations r 
+  inner join modules m on m.id = r.recommended_id
+  inner join topics t on m.topic_id = t.id
+  where r.recommender_id = in_module_id
+) recommendations_aggregator;
+$$ LANGUAGE sql;
+
+
+drop materialized view if exists module_details;
+CREATE materialized view module_details AS 
+  select o1.id as id, o1.level as level,row_to_json(o1) as details from(
+    select 
+    m.id,
+    m.level,
+    m.paths, 
+    m.description,
+    m.topic_id,
+    m.video_id,
+    m.script_id,
+    m.children,
+    get_exercises_as_json(m.id) as exercises,
+    get_recommendations_as_json(m.id) as recommendations
+    from module_trees m 
+  ) o1;
+
+ALTER MATERIALIZED VIEW module_details OWNER TO lectureapp; 
+create unique index module_details_index on module_details(id,level);

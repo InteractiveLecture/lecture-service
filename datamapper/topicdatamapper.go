@@ -17,7 +17,7 @@ func (r *DataMapper) AddOfficer(id, officer string) error {
 }
 
 func (r *DataMapper) RemoveOfficer(id, user string) error {
-	_, err := r.db.Exec(`SELECT remove_officer($1,$2)`, user, id)
+	_, err := r.db.Exec(`SELECT remove_officer($1,$2)`, id, user)
 	if err != nil {
 		return err
 	}
@@ -29,7 +29,8 @@ func (t *DataMapper) GetOneTopic(id string) ([]byte, error) {
 }
 
 func (t *DataMapper) CreateTopic(topic map[string]interface{}) error {
-	_, err := t.db.Exec(prepare("SELECT add_topic(%v)", topic["id"], topic["name"], topic["description"], topic["officers"]))
+	stmt, parameters := prepare("SELECT add_topic(%v)", topic["id"], topic["name"], topic["description"], topic["officers"])
+	_, err := t.db.Exec(stmt, parameters...)
 	return err
 }
 

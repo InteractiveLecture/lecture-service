@@ -4,30 +4,28 @@
 drop function replace_module_description(UUID,text);
 CREATE OR REPLACE FUNCTION replace_module_description(in_module_id UUID,in_new_description text) 
 RETURNS void AS $$
-BEGIN
   update modules set description = in_new_description where id = in_module_id;
-END;
-$$ LANGUAGE plpgsql;
+  REFRESH MATERIALIZED VIEW CONCURRENTLY module_trees;
+  REFRESH MATERIALIZED VIEW CONCURRENTLY module_details;
+$$ LANGUAGE sql;
 
 
 --TODO unit test
 drop function remove_module_recommendation(UUID,UUID);
 CREATE OR REPLACE FUNCTION remove_module_recommendation(in_module_id UUID,in_recommendation_id UUID) 
 RETURNS void AS $$
-BEGIN
   delete from module_recommendations where recommender_id = in_module_id AND recommended_id = in_recommendation_id;
-END;
-$$ LANGUAGE plpgsql;
+  REFRESH MATERIALIZED VIEW CONCURRENTLY module_details;
+$$ LANGUAGE sql;
 
 
 --TODO unit test
 drop function add_module_recommendation(UUID,UUID);
-CREATE OR REPLACE FUNCTION add_module_recommendation(in_topic_id UUID,in_user_id UUID) 
+CREATE OR REPLACE FUNCTION add_module_recommendation(in_module_id UUID,in_recommendation_id UUID) 
 RETURNS void AS $$
-BEGIN
   insert into module_recommendations(recommender_id, recommended_id) values(in_module_id,in_recommendation_id);
-END;
-$$ LANGUAGE plpgsql;
+  REFRESH MATERIALIZED VIEW CONCURRENTLY module_details;
+$$ LANGUAGE sql;
 
 
 
@@ -35,46 +33,55 @@ $$ LANGUAGE plpgsql;
 drop function add_module_script(UUID,UUID);
 CREATE OR REPLACE FUNCTION add_module_script(in_module_id UUID,in_script_id UUID) 
 RETURNS void AS $$
-BEGIN
   update modules set script_id = in_script_id where id = in_module_id;
-END;
-$$ LANGUAGE plpgsql;
+  REFRESH MATERIALIZED VIEW CONCURRENTLY module_trees;
+  REFRESH MATERIALIZED VIEW CONCURRENTLY module_details;
+$$ LANGUAGE sql;
 
 --TODO unit test
 drop function remove_module_script(UUID,UUID);
 CREATE OR REPLACE FUNCTION remove_module_script(in_module_id UUID,in_video_id UUID) 
 RETURNS void AS $$
-BEGIN
   update modules set script_id = null where id = in_module_id;
-END;
-$$ LANGUAGE plpgsql;
+  REFRESH MATERIALIZED VIEW CONCURRENTLY module_trees;
+  REFRESH MATERIALIZED VIEW CONCURRENTLY module_details;
+$$ LANGUAGE sql;
 
 
 --TODO unit test
 drop function add_module_video(UUID,UUID);
 CREATE OR REPLACE FUNCTION add_module_video(in_module_id UUID,in_video_id UUID) 
 RETURNS void AS $$
-BEGIN
   update modules set video_id = in_video_id where id = in_module_id;
-END;
-$$ LANGUAGE plpgsql;
+  REFRESH MATERIALIZED VIEW CONCURRENTLY module_trees;
+  REFRESH MATERIALIZED VIEW CONCURRENTLY module_details;
+$$ LANGUAGE sql;
 
 
 --TODO unit test
 drop function remove_module_video(UUID,UUID);
 CREATE OR REPLACE FUNCTION remove_module_video(in_module_id UUID,in_video_id UUID) 
 RETURNS void AS $$
-BEGIN
   update modules set video_id = null where id = in_module_id;
-END;
-$$ LANGUAGE plpgsql;
+  REFRESH MATERIALIZED VIEW CONCURRENTLY module_trees;
+  REFRESH MATERIALIZED VIEW CONCURRENTLY module_details;
+$$ LANGUAGE sql;
 
 --TODO unit test
-drop function add_exercise(UUID,UUID,varchar);
-CREATE OR REPLACE FUNCTION add_exercise(in_exercise_id UUID, in_module_id UUID, in_backend varchar) 
+drop function add_exercise(UUID,UUID,varchar,text[]);
+CREATE OR REPLACE FUNCTION add_exercise(in_exercise_id UUID, in_module_id UUID, in_backend varchar, tasks variadic text[]) 
 RETURNS void AS $$
+DECLARE
+task text;
+new_position int := 1;
 BEGIN
   insert into exercises(id,module_id,backend,version) values(in_exercise_id,in_module_id,in_backend,1);
+  foreach task in ARRAY(tasks)
+  loop
+    insert into tasks(exercise_id,position,content) values(in_exercise_id,new_position,task);
+    new_position= new_position +1;
+  end loop;
+  REFRESH MATERIALIZED VIEW CONCURRENTLY module_details;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -86,6 +93,7 @@ RETURNS void AS $$
 BEGIN
   PERFORM check_module_context(in_context_id,in_exercise_id);
   delete from exercises where id = in_exercise_id;
+  REFRESH MATERIALIZED VIEW CONCURRENTLY module_details;
 END;
 $$ LANGUAGE plpgsql;
 

@@ -1,6 +1,8 @@
 package lecturepatch
 
 import (
+	"log"
+
 	"github.com/ant0ine/go-urlrouter"
 	"github.com/richterrettich/jsonpatch"
 )
@@ -74,6 +76,7 @@ func generateReplaceDescription(id string, op *jsonpatch.Operation, params map[s
 	if op.Type != jsonpatch.REPLACE {
 		return nil, jsonpatch.InvalidPatchError{"Operation Not allowed here."}
 	}
+	log.Println("op value is ", op.Value)
 	return createCommand("SELECT replace_module_description($1,$2)", id, op.Value), nil
 }
 
@@ -131,7 +134,7 @@ func generateAddExercise(id string, op *jsonpatch.Operation, params map[string]s
 		return nil, jsonpatch.InvalidPatchError{"Operation Not allowed here."}
 	}
 	value := op.Value.(map[string]interface{})
-	stmt, par := prepare("SELECT add_exercise(%v)", value["id"], id, value["backend"])
+	stmt, par := prepare("SELECT add_exercise(%v)", value["id"], id, value["backend"], value["tasks"])
 	return createCommand(stmt, par...), nil
 }
 

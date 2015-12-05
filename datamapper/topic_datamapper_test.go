@@ -43,31 +43,6 @@ func TestQuerySingleTopic(t *testing.T) {
 	assert.Nil(t, err)
 }
 
-func TestGetModuleTree(t *testing.T) {
-	mapper, err := prepareMapper()
-	assert.Nil(t, err)
-	assert.Nil(t, resetDatabase(mapper))
-	dr := paginator.DepthRequest{0, -1, -1}
-	result, err := mapper.GetModuleRange("b8c98f3e-bb7c-39e7-a3ce-e479c7892882", dr)
-	assert.Nil(t, err)
-	assert.NotNil(t, result)
-	var topics = make([]map[string]interface{}, 0)
-	err = json.NewDecoder(bytes.NewReader(result)).Decode(&topics)
-	assert.Nil(t, err)
-}
-
-func TestGetModule(t *testing.T) {
-	mapper, err := prepareMapper()
-	assert.Nil(t, err)
-	assert.Nil(t, resetDatabase(mapper))
-	result, err := mapper.GetOneModule("98bf99f7-3fed-3fd0-b43e-0b0f376b3607")
-	assert.Nil(t, err)
-	assert.NotNil(t, result)
-	var topics = make(map[string]interface{})
-	err = json.NewDecoder(bytes.NewReader(result)).Decode(&topics)
-	assert.Nil(t, err)
-}
-
 func TestGetBalances(t *testing.T) {
 	mapper, err := prepareMapper()
 	assert.Nil(t, err)
@@ -314,8 +289,72 @@ func TestAddOfficer(t *testing.T) {
 	mapper, err := prepareMapper()
 	assert.Nil(t, err)
 	assert.Nil(t, resetDatabase(mapper))
-	mapper.AddOfficer()
+	officerId := uuid.NewV4().String()
+	mapper.AddOfficer("b8c98f3e-bb7c-39e7-a3ce-e479c7892882", officerId)
+	data, err := mapper.GetOneTopic("b8c98f3e-bb7c-39e7-a3ce-e479c7892882")
+	assert.Nil(t, err)
+	var topic = make(map[string]interface{})
+	err = json.NewDecoder(bytes.NewReader(data)).Decode(&topic)
+	assert.Nil(t, err)
+	authorities := toSet(topic["authorities"].([]interface{}), "user_id")
+	for _, v := range []string{officerId} {
+		assert.True(t, authorities[v])
+	}
+}
 
+func TestRemoveOfficer(t *testing.T) {
+	mapper, err := prepareMapper()
+	assert.Nil(t, err)
+	assert.Nil(t, resetDatabase(mapper))
+	officerId := "233804c6-55b8-3807-9733-9c090d75decf"
+	err = mapper.RemoveOfficer("b8c98f3e-bb7c-39e7-a3ce-e479c7892882", officerId)
+	assert.Nil(t, err)
+	data, err := mapper.GetOneTopic("b8c98f3e-bb7c-39e7-a3ce-e479c7892882")
+	assert.Nil(t, err)
+	var topic = make(map[string]interface{})
+	err = json.NewDecoder(bytes.NewReader(data)).Decode(&topic)
+	assert.Nil(t, err)
+
+	authorities := toSet(topic["authorities"].([]interface{}), "user_id")
+	for _, v := range []string{officerId} {
+		assert.False(t, authorities[v])
+	}
+}
+
+func TestAddTopic(t *testing.T) {
+	mapper, err := prepareMapper()
+	assert.Nil(t, err)
+	assert.Nil(t, resetDatabase(mapper))
+
+	topic := make(map[string]interface{})
+
+	topicId := uuid.NewV4().String()
+	firstOfficerId := uuid.NewV4().String()
+	secondOfficerId := uuid.NewV4().String()
+	topic["id"] = topicId
+	topic["name"] = "Interne Unternehmensrechnung"
+	topic["description"] = "lorem ipsum dolor"
+	topic["officers"] = []string{firstOfficerId, secondOfficerId}
+	err = mapper.CreateTopic(topic)
+	assert.Nil(t, err)
+	data, err := mapper.GetOneTopic(topicId)
+	assert.Nil(t, err)
+	var newTopic = make(map[string]interface{})
+	err = json.NewDecoder(bytes.NewReader(data)).Decode(&newTopic)
+	assert.Nil(t, err)
+	authorities := toSet(newTopic["authorities"].([]interface{}), "user_id")
+	for _, v := range []string{firstOfficerId, secondOfficerId} {
+		assert.True(t, authorities[v])
+	}
+}
+
+func toSet(input []interface{}, idField string) map[string]bool {
+	result := make(map[string]bool)
+	for _, v := range input {
+		castedEntity := v.(map[string]interface{})
+		result[castedEntity[idField].(string)] = true
+	}
+	return result
 }
 
 //Projection functions

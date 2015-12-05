@@ -56,7 +56,7 @@ $$ LANGUAGE sql;
 drop function add_officer(UUID,UUID);
 CREATE OR REPLACE FUNCTION add_officer(in_topic_id UUID,in_user_id UUID) 
 RETURNS void AS $$
-insert into topic_authority(topic_id,user_id,kind) values(in_topic_id,in_topic_id,'OFFICER');
+insert into topic_authority(topic_id,user_id,kind) values(in_topic_id,in_user_id,'OFFICER');
 $$ LANGUAGE sql;
 
 
@@ -65,6 +65,7 @@ drop function replace_topic_description(UUID,text);
 CREATE OR REPLACE FUNCTION replace_topic_description(in_topic_id UUID,in_new_description text) 
 RETURNS void AS $$
 UPDATE topics set description = in_new_description where id = in_topic_id;
+REFRESH MATERIALIZED VIEW CONCURRENTLY module_details;
 $$ LANGUAGE sql;
 
 
@@ -82,8 +83,8 @@ BEGIN
   SET CONSTRAINTS ALL DEFERRED;
   PERFORM check_topic_context(in_context_id,in_module_id);
   select module_parents.parent_id into old_parent 
-    from module_parents 
-    where child_id = in_module_id;
+  from module_parents 
+  where child_id = in_module_id;
   if old_parent is null then --this means, the moving module is currently the root module.
     PERFORM shift_tree(in_module_id);
     insert into module_parents select in_module_id, a from unnest(in_new_parent_ids) a;
@@ -92,15 +93,16 @@ BEGIN
     delete from module_parents where child_id = in_module_id;
     if array_length(in_new_parent_ids,1) = 0 then -- the moving module should be the new root.
       select module_trees.id into old_root_id 
-        from module_trees 
-        where topic_id = (select topic_id from modules where id = in_module_id) AND level = 0;
+      from module_trees 
+      where topic_id = (select topic_id from modules where id = in_module_id) AND level = 0;
       insert into module_parents 
-        values(old_root_id, in_module_id); -- the old root is now its first child.
+      values(old_root_id, in_module_id); -- the old root is now its first child.
     else
       insert into module_parents select in_module_id, a from unnest(in_new_parent_ids) a;
     end if;
   end if;
   REFRESH MATERIALIZED VIEW CONCURRENTLY module_trees;
+  REFRESH MATERIALIZED VIEW CONCURRENTLY module_details;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -166,6 +168,7 @@ BEGIN
     insert into module_parents (child_id,parent_id) select in_module_id, a from unnest(in_new_parent_ids) a;
   end if;
   REFRESH MATERIALIZED VIEW CONCURRENTLY module_trees;
+  REFRESH MATERIALIZED VIEW CONCURRENTLY module_details;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -190,6 +193,7 @@ BEGIN
   end if;
   delete from modules where id = in_module_id;
   REFRESH MATERIALIZED VIEW CONCURRENTLY module_trees;
+  REFRESH MATERIALIZED VIEW CONCURRENTLY module_details;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -208,6 +212,7 @@ BEGIN
   end if;
   delete from modules where  id in (select id from (select id, unnest (paths) as paths from module_trees )t where paths like '%'||in_module_id||'%');
   REFRESH MATERIALIZED VIEW CONCURRENTLY module_trees;
+  REFRESH MATERIALIZED VIEW CONCURRENTLY module_details;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -216,9 +221,10 @@ $$ LANGUAGE plpgsql;
 drop function add_module(UUID,UUID,text,UUID,UUID,UUID[]);
 CREATE OR REPLACE FUNCTION add_module(id UUID, topic_id UUID, description text,  video_id UUID, script_id UUID,parent_ids VARIADIC UUID[]) 
 RETURNS void AS $$
-  insert into modules (id,topic_id,description,video_id,script_id,version) values(id,topic_id,description,video_id,script_id,1);
-  insert into module_parents(child_id,parent_id) select id,a from unnest(parent_ids)a;
-  REFRESH MATERIALIZED VIEW CONCURRENTLY module_trees;
+insert into modules (id,topic_id,description,video_id,script_id,version) values(id,topic_id,description,video_id,script_id,1);
+insert into module_parents(child_id,parent_id) select id,a from unnest(parent_ids)a;
+REFRESH MATERIALIZED VIEW CONCURRENTLY module_trees;
+REFRESH MATERIALIZED VIEW CONCURRENTLY module_details;
 $$ LANGUAGE sql;
 
 
