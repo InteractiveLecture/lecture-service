@@ -17,5 +17,5 @@ children as (
 ) select m.id,m.level,m.paths,m.description,m.topic_id,m.video_id,m.script_id,c.children from main m inner join children c on m.id = c.id order by m.level;
 
 ALTER MATERIALIZED VIEW module_trees OWNER TO lectureapp; 
-create unique index module_trees_index on module_trees (id);
+create unique index module_trees_index on module_trees (id,level);
 

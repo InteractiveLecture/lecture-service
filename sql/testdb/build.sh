@@ -1,3 +1,3 @@
 #!/bin/bash
 
-docker build -t interactive-lecture/lecture-database-test .
+docker build -t richterrettich/lecture-database-test .

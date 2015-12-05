@@ -3,6 +3,7 @@ package lecturepatch
 import (
 	"database/sql"
 	"fmt"
+	"log"
 	"reflect"
 	"strings"
 
@@ -19,6 +20,7 @@ type SqlCommandContainer struct {
 
 func (c *SqlCommandContainer) ExecuteMain(transaction interface{}) error {
 	tx := transaction.(*sql.Tx)
+	log.Println("executing command: ", c.statement)
 	_, err := tx.Exec(c.statement, c.parameters...)
 	return err
 }

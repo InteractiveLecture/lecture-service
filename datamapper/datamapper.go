@@ -3,6 +3,7 @@ package datamapper
 import (
 	"database/sql"
 	"fmt"
+	"log"
 	"reflect"
 	"strings"
 
@@ -69,7 +70,7 @@ func (mapper *DataMapper) ApplyPatch(id string, patch *jsonpatch.Patch, compiler
 	}
 
 	tx, err := mapper.db.Begin()
-
+	log.Println("executing before functions...")
 	for _, com := range commands.Commands {
 		err = com.ExecuteBefore(tx)
 		if err != nil {
@@ -77,6 +78,7 @@ func (mapper *DataMapper) ApplyPatch(id string, patch *jsonpatch.Patch, compiler
 			return err
 		}
 	}
+	log.Println("executing main functions")
 	for _, com := range commands.Commands {
 		err = com.ExecuteMain(tx)
 		if err != nil {
@@ -84,6 +86,7 @@ func (mapper *DataMapper) ApplyPatch(id string, patch *jsonpatch.Patch, compiler
 			return err
 		}
 	}
+	log.Println("executing after functions")
 	for _, com := range commands.Commands {
 		err = com.ExecuteAfter(tx)
 		if err != nil {
@@ -91,6 +94,7 @@ func (mapper *DataMapper) ApplyPatch(id string, patch *jsonpatch.Patch, compiler
 			return err
 		}
 	}
+	log.Println("committing transaction")
 	return tx.Commit()
 }
 

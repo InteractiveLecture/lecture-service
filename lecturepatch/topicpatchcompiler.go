@@ -162,6 +162,6 @@ func (c *TopicPatchCompiler) Compile(id string, treePatch *jsonpatch.Patch) (*js
 		return nil, err
 	}
 	AddCommand(result, `SELECT increment_version($1,$2)`, id, "topics")
-	AddCommand(result, `REFRESH MATERIALIZED VIEW module_trees`)
+	//	AddCommand(result, `REFRESH MATERIALIZED VIEW module_trees`)
 	return result, nil
 }

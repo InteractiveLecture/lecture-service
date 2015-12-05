@@ -116,29 +116,20 @@ func TestGetModuleHistory(t *testing.T) {
 	assert.Nil(t, err)
 }
 
-func resetDatabase(mapper *DataMapper) error {
-	result, err := ioutil.ReadFile("dummy_data.sql")
-	if err != nil {
-		return err
-	}
-	parts := strings.Split(string(result), ";")
-	tx, err := mapper.db.Begin()
-	for _, v := range parts {
-		_, err = tx.Exec(v)
-		if err != nil {
-			tx.Rollback()
-			return err
-		}
-	}
-	err = tx.Commit()
-	if err != nil {
-		return err
-	}
-
-	return nil
-
-}
-
+/*
+TOPIC 1:
+			FOO
+			 |
+			BAR
+			 |
+			BLI
+			/ \
+  BLUBB  BLA
+	  \    /
+		 BAZZ
+		 TOPIC 2:
+		 FOOBARBAZZ
+*/
 func TestMoveSingle(t *testing.T) {
 	mapper, err := prepareMapper()
 	defer mapper.db.Close()
@@ -173,9 +164,6 @@ func TestMoveSingle(t *testing.T) {
 	assert.Equal(t, 0, modules["bar"].level)
 	for k, v := range modules {
 		if k != "foobarbazz" {
-			log.Println(v.paths[0])
-			log.Println(modules["bar"].Id)
-			log.Println(strings.HasPrefix(v.paths[0], "/"+modules["bar"].Id))
 			assert.True(t, strings.HasPrefix(v.paths[0], "/"+modules["bar"].Id))
 		}
 	}
@@ -211,8 +199,6 @@ func TestMoveTree(t *testing.T) {
 	}
 	assert.Equal(t, 1, modules["bar"].level)
 	_, err = db.Exec(`SELECT move_module_tree($1,$2,$3)`, modules["bli"].topicId, modules["bli"].Id, modules["foo"].Id)
-	assert.Nil(t, err)
-	_, err = db.Exec("REFRESH MATERIALIZED VIEW module_trees")
 	assert.Nil(t, err)
 	assert.Equal(t, modules["bli"].Id, getDirectParents(modules["bla"])[0])
 }
@@ -260,51 +246,61 @@ func TestDeleteModule(t *testing.T) {
 	assert.Nil(t, resetDatabase(mapper))
 	db := mapper.db
 	modules := getModules(t, db)
-	context := modules["bli"].topicId
-	_, err = db.Exec(`SELECT remove_module($1,$2)`, context, modules["bli"].Id)
-	_, err = db.Exec("REFRESH MATERIALIZED VIEW module_trees")
-	assert.Nil(t, err)
-
-	assert.Nil(t, err)
-	modules = getModules(t, db)
-	parents := getDirectParents(modules["bla"])
-	assert.Equal(t, 1, len(parents))
-	assert.Equal(t, modules["bar"].Id, parents[0])
-	parents = getDirectParents(modules["blubb"])
-	assert.Equal(t, 1, len(parents))
-	assert.Equal(t, modules["bar"].Id, parents[0])
-	_, err = db.Exec(`SELECT remove_module($1,$2)`, context, modules["foo"].Id)
-	assert.Nil(t, err)
-	_, err = db.Exec("REFRESH MATERIALIZED VIEW module_trees")
-	assert.Nil(t, err)
-
-	_, err = db.Exec(`SELECT remove_module($1,$2)`, context, modules["bar"].Id)
-	assert.Nil(t, err)
-	_, err = db.Exec("REFRESH MATERIALIZED VIEW module_trees")
+	p := jsonpatch.Patch{
+		Version: 1,
+		Operations: []jsonpatch.Operation{
+			jsonpatch.Operation{
+				Type: jsonpatch.REMOVE,
+				Path: "/modules/" + modules["bli"].Id,
+			},
+			jsonpatch.Operation{
+				Type: jsonpatch.REMOVE,
+				Path: "/modules/" + modules["foo"].Id,
+			},
+			jsonpatch.Operation{
+				Type: jsonpatch.REMOVE,
+				Path: "/modules/" + modules["bar"].Id,
+			},
+		},
+	}
+	compiler := lecturepatch.ForTopics()
+	err = mapper.ApplyPatch(modules["foo"].topicId, &p, compiler)
 	assert.Nil(t, err)
 	modules = getModules(t, db)
 	assert.Equal(t, 4, len(modules))
 	assert.Equal(t, modules["bla"].Id, getDirectParents(modules["blubb"])[0])
-	//	assert.Equal(t, fmt.Sprintf("/%s/%s/%s", modules["bla"].Id, modules["blubb"].Id, modules["bazz"].Id), modules["bazz"].paths[0])
+	assert.Equal(t, fmt.Sprintf("/%s/%s/%s", modules["bla"].Id, modules["blubb"].Id, modules["bazz"].Id), modules["bazz"].paths[0])
 }
 
-/*
 func TestDeleteModuleTree(t *testing.T) {
 	mapper, err := prepareMapper()
 	assert.Nil(t, err)
 	assert.Nil(t, resetDatabase(mapper))
 	db := mapper.db
 	modules := getModules(t, db)
-	_, err = db.Exec(`SELECT add_module($1,$2,$3,$4,$5,$6)`, uuid.NewV4().String(), modules["foo"].topicId, "hugo", nil, nil, modules["foo"].Id)
+	p := jsonpatch.Patch{
+		Version: 1,
+		Operations: []jsonpatch.Operation{
+			jsonpatch.Operation{
+				Type: jsonpatch.ADD,
+				Path: "/modules",
+				Value: map[string]interface{}{
+					"id":          uuid.NewV4(),
+					"description": "hugo",
+					"video_id":    uuid.NewV4(),
+					"script_id":   uuid.NewV4(),
+					"parents":     []string{modules["foo"].Id},
+				},
+			},
+			jsonpatch.Operation{
+				Type: jsonpatch.REMOVE,
+				Path: "/modules/" + modules["bar"].Id + "/tree",
+			},
+		},
+	}
+	compiler := lecturepatch.ForTopics()
+	err = mapper.ApplyPatch(modules["foo"].topicId, &p, compiler)
 	assert.Nil(t, err)
-	_, err = db.Exec("REFRESH MATERIALIZED VIEW module_trees")
-	assert.Nil(t, err)
-
-	_, err = db.Exec(`SELECT remove_module_tree($1,$2)`, modules["bar"].topicId, modules["bar"].Id)
-	assert.Nil(t, err)
-	_, err = db.Exec("REFRESH MATERIALIZED VIEW module_trees")
-	assert.Nil(t, err)
-
 	modules = getModules(t, db)
 	assert.Equal(t, 3, len(modules))
 	for _, v := range []string{"foo", "hugo"} {
@@ -312,7 +308,15 @@ func TestDeleteModuleTree(t *testing.T) {
 		assert.True(t, ok)
 	}
 	assert.Equal(t, fmt.Sprintf("/%s/%s", modules["foo"].Id, modules["hugo"].Id), modules["hugo"].paths[0])
-}*/
+}
+
+func TestAddOfficer(t *testing.T) {
+	mapper, err := prepareMapper()
+	assert.Nil(t, err)
+	assert.Nil(t, resetDatabase(mapper))
+	mapper.AddOfficer()
+
+}
 
 //Projection functions
 
@@ -366,4 +370,29 @@ func prepareMapper() (*DataMapper, error) {
 		return nil, err
 	}
 	return mapper, nil
+}
+
+func resetDatabase(mapper *DataMapper) error {
+	result, err := ioutil.ReadFile("dummy_data.sql")
+	if err != nil {
+		return err
+	}
+	parts := strings.Split(string(result), ";")
+	tx, err := mapper.db.Begin()
+	for _, v := range parts {
+		_, err := tx.Exec(v)
+		if err != nil {
+			tx.Rollback()
+			log.Println(err)
+			return err
+		}
+	}
+	err = tx.Commit()
+	if err != nil {
+		return err
+	}
+	//_, err := exec.Command("./reset_database.sh").Output()
+
+	return err
+
 }
