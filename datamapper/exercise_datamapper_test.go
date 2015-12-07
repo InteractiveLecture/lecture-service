@@ -195,6 +195,12 @@ func TestAddRemoveAlterTask(t *testing.T) {
 	tasks := ex["tasks"].([]interface{})
 	assert.Equal(t, taskId, tasks[1].(map[string]interface{})["id"].(string))
 	assert.Equal(t, 3, len(tasks))
+	assert.Equal(t, "das ist der neue dritte task", tasks[2].(map[string]interface{})["content"])
+	for _, v := range tasks {
+		task := v.(map[string]interface{})
+		assert.NotEqual(t, "f0b089ac-c0d5-3dea-bddc-89c3e1fe0968dt", task["id"].(string))
+	}
+
 }
 
 func getHint(mapper *DataMapper, hintId string) (map[string]interface{}, error) {
