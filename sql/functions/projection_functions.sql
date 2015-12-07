@@ -86,26 +86,30 @@ DROP FUNCTION IF EXISTS get_hint_purchase_history_base(UUID,int,int);
 CREATE OR REPLACE FUNCTION get_hint_purchase_history_base(in_user_id UUID,in_limit int,in_skip int)  returns table(user_id UUID, hint_id UUID, amount smallint, event_time timestamp, exercise_id UUID)AS $$
 BEGIN
   if in_limit = -1 AND in_skip = -1 then 
-    return query select h.user_id, h.hint_id, h.amount, h.time,hi.exercise_id
+    return query select h.user_id, h.hint_id, h.amount, h.time,ta.exercise_id
     from hint_purchase_histories h inner join hints hi on hi.id = h.hint_id
+    inner join tasks ta on ta.id = hi.task_id
     where h.user_id = in_user_id
     ORDER BY h.time;
   elsif in_limit = -1 then
-    return query select h.user_id, h.hint_id, h.amount, h.time, hi.exercise_id 
+    return query select h.user_id, h.hint_id, h.amount, h.time, ta.exercise_id 
     from hint_purchase_histories h inner join hints hi on hi.id = h.hint_id
+    inner join tasks ta on ta.id = hi.task_id
     where h.user_id = in_user_id
     ORDER BY h.time
     OFFSET in_skip;
 
   elsif in_skip = -1 then
-    return query select h.user_id, h.hint_id, h.amount, h.time, hi.exercise_id
+    return query select h.user_id, h.hint_id, h.amount, h.time, ta.exercise_id
     from hint_purchase_histories h inner join hints hi on hi.id = h.hint_id
+    inner join tasks ta on ta.id = hi.task_id
     where h.user_id = in_user_id
     ORDER BY h.time
     LIMIT in_limit;
   else
-    return query select h.user_id, h.hint_id, h.amount, h.time, hi.exercise_id
+    return query select h.user_id, h.hint_id, h.amount, h.time, ta.exercise_id
     from hint_purchase_histories h inner join hints hi on hi.id = h.hint_id
+    inner join tasks ta on ta.id = hi.task_id
     where h.user_id = in_user_id
     ORDER BY h.time
     LIMIT in_limit
@@ -259,11 +263,12 @@ BEGIN
       from topic_authority ta inner join topics t on ta.topic_id = t.id 
       inner join modules m on t.id = m.topic_id
       inner join exercises e on e.module_id = m.id
-      inner join hints h on h.exercise_id = e. id 
+      inner join tasks tas  on tas.exercise_id = e.id
+      inner join hints h on h.task_id = tas.id 
       where ta.user_id = in_user_id AND h.id = in_hint_id)
     then
     select row_to_json(o1)  into result from(
-      select id, exercise_id, position, content, cost from hints where id = in_hint_id
+      select id, task_id, position, content, cost from hints where id = in_hint_id
     ) o1;
   end if;
   return result;
@@ -286,7 +291,7 @@ $$ LANGUAGE sql;
 DROP FUNCTION IF EXISTS get_one_exercise_as_json(UUID);
 CREATE OR REPLACE FUNCTION get_one_exercise_as_json(in_exercise_id UUID)  returns json AS $$
 select row_to_json(exercises_aggregator) from ( 
-  select ex.id, ex.backend, ex.version, (get_tasks_as_json(ex.id))
+  select ex.id, ex.backend, ex.version, (get_tasks_as_json(ex.id)) as tasks
   from exercises ex where ex.id = in_exercise_id
 ) exercises_aggregator;
 $$ LANGUAGE sql;

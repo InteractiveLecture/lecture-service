@@ -48,7 +48,8 @@ BEGIN
   from topic_balances tb 
   inner join modules m on m.topic_id = tb.topic_id
   inner join exercises e on e.module_id = m.id
-  inner join hints h on h.exercise_id = e.id
+  inner join tasks t on t.exercise_id = e.id
+  inner join hints h on h.task_id = t.id
   where tb.user_id = in_user_id  AND h.id = in_hint_id;
 
   if user_balance < hint_cost then

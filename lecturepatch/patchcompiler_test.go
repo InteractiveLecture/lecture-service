@@ -13,7 +13,7 @@ func createExercisePatch() *jsonpatch.Patch {
 	patch.Operations = []jsonpatch.Operation{
 		jsonpatch.Operation{
 			Type: jsonpatch.ADD,
-			Path: "/hints",
+			Path: "/tasks/1/hints",
 			Value: map[string]interface{}{
 				"id":       "999",
 				"position": 1,
@@ -23,27 +23,28 @@ func createExercisePatch() *jsonpatch.Patch {
 		},
 		jsonpatch.Operation{
 			Type: jsonpatch.REMOVE,
-			Path: "/hints/1",
+			Path: "/tasks/1/hints/1",
 		},
 		jsonpatch.Operation{
 			Type: jsonpatch.MOVE,
-			Path: "/hints/2",
-			From: "/hints/1",
+			Path: "/tasks/1/hints/2",
+			From: "/tasks/1/hints/1",
 		},
 		jsonpatch.Operation{
 			Type:  jsonpatch.REPLACE,
-			Path:  "/hints/1/content",
+			Path:  "/tasks/1/hints/1/content",
 			Value: "Dies ist der neue erste Hint",
 		},
 		jsonpatch.Operation{
 			Type:  jsonpatch.REPLACE,
-			Path:  "/hints/1/cost",
+			Path:  "/tasks/1/hints/1/cost",
 			Value: 200,
 		},
 		jsonpatch.Operation{
 			Type: jsonpatch.ADD,
 			Path: "/tasks",
 			Value: map[string]interface{}{
+				"id":       "888",
 				"position": 1,
 				"content":  "Dies ist der erste Task",
 			},
@@ -93,6 +94,7 @@ func createModulePatch() *jsonpatch.Patch {
 			Value: map[string]interface{}{
 				"id":      "333",
 				"backend": "Java",
+				"tasks":   []string{"urf urf", "bla bla"},
 			},
 		},
 		jsonpatch.Operation{
@@ -207,7 +209,7 @@ func TestModulePatchCompiler(t *testing.T) {
 	assert.Equal(t, "123", list.Commands[4].(*SqlCommandContainer).parameters[0])
 	assert.Equal(t, "111", list.Commands[4].(*SqlCommandContainer).parameters[1])
 
-	assert.Equal(t, "SELECT add_exercise($1,$2,$3)", list.Commands[5].(*SqlCommandContainer).statement)
+	assert.Equal(t, "SELECT add_exercise($1,$2,$3,$4,$5)", list.Commands[5].(*SqlCommandContainer).statement)
 	assert.Equal(t, "333", list.Commands[5].(*SqlCommandContainer).parameters[0])
 	assert.Equal(t, "123", list.Commands[5].(*SqlCommandContainer).parameters[1])
 	assert.Equal(t, "Java", list.Commands[5].(*SqlCommandContainer).parameters[2])
@@ -231,7 +233,6 @@ func TestModulePatchCompiler(t *testing.T) {
 	assert.Equal(t, "SELECT remove_module_script($1,$2)", list.Commands[10].(*SqlCommandContainer).statement)
 	assert.Equal(t, "123", list.Commands[10].(*SqlCommandContainer).parameters[0])
 	assert.Equal(t, "555", list.Commands[10].(*SqlCommandContainer).parameters[1])
-
 }
 
 func TestTopicPatchCompiler(t *testing.T) {
@@ -281,8 +282,7 @@ func TestTopicPatchCompiler(t *testing.T) {
 	assert.Equal(t, "123", list.Commands[9].(*SqlCommandContainer).parameters[0])
 	assert.Equal(t, "222", list.Commands[9].(*SqlCommandContainer).parameters[1])
 
-	assert.Equal(t, "SELECT increment_version($1,$2)", list.Commands[len(list.Commands)-2].(*SqlCommandContainer).statement)
-	assert.Equal(t, "REFRESH MATERIALIZED VIEW module_trees", list.Commands[len(list.Commands)-1].(*SqlCommandContainer).statement)
+	assert.Equal(t, "SELECT increment_version($1,$2)", list.Commands[len(list.Commands)-1].(*SqlCommandContainer).statement)
 }
 
 func TestExercicePatchCompiler(t *testing.T) {
@@ -294,36 +294,43 @@ func TestExercicePatchCompiler(t *testing.T) {
 	assert.Equal(t, "SELECT check_version($1,$2,$3)", list.Commands[1].(*SqlCommandContainer).statement)
 	assert.Equal(t, "SELECT increment_version($1,$2)", list.Commands[len(list.Commands)-1].(*SqlCommandContainer).statement)
 
-	assert.Equal(t, "SELECT add_hint($1,$2,$3,$4,$5)", list.Commands[2].(*SqlCommandContainer).statement)
-	assert.Equal(t, "999", list.Commands[2].(*SqlCommandContainer).parameters[0])
-	assert.Equal(t, "123", list.Commands[2].(*SqlCommandContainer).parameters[1])
-	assert.Equal(t, 1, list.Commands[2].(*SqlCommandContainer).parameters[2])
-	assert.Equal(t, "Dies ist der erste Hint", list.Commands[2].(*SqlCommandContainer).parameters[3])
-	assert.Equal(t, 100, list.Commands[2].(*SqlCommandContainer).parameters[4])
+	assert.Equal(t, "SELECT add_hint($1,$2,$3,$4,$5,$6)", list.Commands[2].(*SqlCommandContainer).statement)
+	assert.Equal(t, "123", list.Commands[2].(*SqlCommandContainer).parameters[0])
+	assert.Equal(t, 1, list.Commands[2].(*SqlCommandContainer).parameters[1])
+	assert.Equal(t, "999", list.Commands[2].(*SqlCommandContainer).parameters[2])
+	assert.Equal(t, 1, list.Commands[2].(*SqlCommandContainer).parameters[3])
+	assert.Equal(t, "Dies ist der erste Hint", list.Commands[2].(*SqlCommandContainer).parameters[4])
+	assert.Equal(t, 100, list.Commands[2].(*SqlCommandContainer).parameters[5])
 
-	assert.Equal(t, "SELECT remove_hint($1,$2)", list.Commands[3].(*SqlCommandContainer).statement)
+	assert.Equal(t, "SELECT remove_hint($1,$2,$3)", list.Commands[3].(*SqlCommandContainer).statement)
 	assert.Equal(t, "123", list.Commands[3].(*SqlCommandContainer).parameters[0])
 	assert.Equal(t, 1, list.Commands[3].(*SqlCommandContainer).parameters[1])
+	assert.Equal(t, 1, list.Commands[3].(*SqlCommandContainer).parameters[2])
 
-	assert.Equal(t, "SELECT move_hint($1,$2,$3)", list.Commands[4].(*SqlCommandContainer).statement)
+	assert.Equal(t, "SELECT move_hint($1,$2,$3,$4,$5)", list.Commands[4].(*SqlCommandContainer).statement)
 	assert.Equal(t, "123", list.Commands[4].(*SqlCommandContainer).parameters[0])
 	assert.Equal(t, 1, list.Commands[4].(*SqlCommandContainer).parameters[1])
-	assert.Equal(t, 2, list.Commands[4].(*SqlCommandContainer).parameters[2])
+	assert.Equal(t, 1, list.Commands[4].(*SqlCommandContainer).parameters[2])
+	assert.Equal(t, 1, list.Commands[4].(*SqlCommandContainer).parameters[3])
+	assert.Equal(t, 2, list.Commands[4].(*SqlCommandContainer).parameters[4])
 
-	assert.Equal(t, "SELECT replace_hint_content($1,$2,$3)", list.Commands[5].(*SqlCommandContainer).statement)
+	assert.Equal(t, "SELECT replace_hint_content($1,$2,$3,$4)", list.Commands[5].(*SqlCommandContainer).statement)
 	assert.Equal(t, "123", list.Commands[5].(*SqlCommandContainer).parameters[0])
 	assert.Equal(t, 1, list.Commands[5].(*SqlCommandContainer).parameters[1])
-	assert.Equal(t, "Dies ist der neue erste Hint", list.Commands[5].(*SqlCommandContainer).parameters[2])
+	assert.Equal(t, 1, list.Commands[5].(*SqlCommandContainer).parameters[2])
+	assert.Equal(t, "Dies ist der neue erste Hint", list.Commands[5].(*SqlCommandContainer).parameters[3])
 
-	assert.Equal(t, "SELECT replace_hint_cost($1,$2,$3)", list.Commands[6].(*SqlCommandContainer).statement)
+	assert.Equal(t, "SELECT replace_hint_cost($1,$2,$3,$4)", list.Commands[6].(*SqlCommandContainer).statement)
 	assert.Equal(t, "123", list.Commands[6].(*SqlCommandContainer).parameters[0])
 	assert.Equal(t, 1, list.Commands[6].(*SqlCommandContainer).parameters[1])
-	assert.Equal(t, 200, list.Commands[6].(*SqlCommandContainer).parameters[2])
+	assert.Equal(t, 1, list.Commands[6].(*SqlCommandContainer).parameters[2])
+	assert.Equal(t, 200, list.Commands[6].(*SqlCommandContainer).parameters[3])
 
-	assert.Equal(t, "SELECT add_task($1,$2,$3)", list.Commands[7].(*SqlCommandContainer).statement)
+	assert.Equal(t, "SELECT add_task($1,$2,$3,$4)", list.Commands[7].(*SqlCommandContainer).statement)
 	assert.Equal(t, "123", list.Commands[7].(*SqlCommandContainer).parameters[0])
-	assert.Equal(t, 1, list.Commands[7].(*SqlCommandContainer).parameters[1])
-	assert.Equal(t, "Dies ist der erste Task", list.Commands[7].(*SqlCommandContainer).parameters[2])
+	assert.Equal(t, "888", list.Commands[7].(*SqlCommandContainer).parameters[1])
+	assert.Equal(t, 1, list.Commands[7].(*SqlCommandContainer).parameters[2])
+	assert.Equal(t, "Dies ist der erste Task", list.Commands[7].(*SqlCommandContainer).parameters[3])
 
 	assert.Equal(t, "SELECT remove_task($1,$2)", list.Commands[8].(*SqlCommandContainer).statement)
 	assert.Equal(t, "123", list.Commands[8].(*SqlCommandContainer).parameters[0])

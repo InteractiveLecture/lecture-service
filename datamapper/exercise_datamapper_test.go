@@ -69,7 +69,7 @@ func TestAddRemoveAlterHint(t *testing.T) {
 		Operations: []jsonpatch.Operation{
 			jsonpatch.Operation{
 				Type: jsonpatch.ADD,
-				Path: "/hints",
+				Path: "/tasks/1/hints",
 				Value: map[string]interface{}{
 					"id":       hintId,
 					"position": 1,
@@ -84,7 +84,7 @@ func TestAddRemoveAlterHint(t *testing.T) {
 	assert.Nil(t, err)
 	ex, err := getExercise(mapper, "f7c21557-03fc-3e99-bdff-7b065f58b39d")
 	assert.Nil(t, err)
-	hints := ex["hint_ids"].([]interface{})
+	hints := getHintIds(ex, 1)
 	assert.Equal(t, hintId, hints[0].(string))
 	hint, err := getHint(mapper, hintId)
 	assert.Nil(t, err)
@@ -95,21 +95,21 @@ func TestAddRemoveAlterHint(t *testing.T) {
 		Operations: []jsonpatch.Operation{
 			jsonpatch.Operation{
 				Type: jsonpatch.MOVE,
-				From: "/hints/1",
-				Path: "/hints/2",
+				From: "/tasks/1/hints/1",
+				Path: "/tasks/1/hints/2",
 			},
 			jsonpatch.Operation{
 				Type: jsonpatch.REMOVE,
-				Path: "/hints/3",
+				Path: "/tasks/1/hints/3",
 			},
 			jsonpatch.Operation{
 				Type:  jsonpatch.REPLACE,
-				Path:  "/hints/3/content",
+				Path:  "/tasks/1/hints/3/content",
 				Value: "das ist der neue dritte hint",
 			},
 			jsonpatch.Operation{
 				Type:  jsonpatch.REPLACE,
-				Path:  "/hints/3/cost",
+				Path:  "/tasks/1/hints/3/cost",
 				Value: 200,
 			},
 		},
@@ -117,7 +117,7 @@ func TestAddRemoveAlterHint(t *testing.T) {
 	err = mapper.ApplyPatch("f7c21557-03fc-3e99-bdff-7b065f58b39d", &p, compiler)
 	assert.Nil(t, err)
 	ex, err = getExercise(mapper, "f7c21557-03fc-3e99-bdff-7b065f58b39d")
-	hints = ex["hint_ids"].([]interface{})
+	hints = getHintIds(ex, 1)
 	assert.Equal(t, hintId, hints[1].(string))
 	assert.Equal(t, 3, len(hints))
 	set := arrayToSet(hints)
@@ -127,6 +127,20 @@ func TestAddRemoveAlterHint(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, "das ist der neue dritte hint", hint["content"])
 	assert.Equal(t, 200, int(hint["cost"].(float64)))
+}
+
+func getHintIds(exercise map[string]interface{}, taskPosition int) []interface{} {
+	return exercise["tasks"].([]interface{})[taskPosition-1].(map[string]interface{})["hints"].([]interface{})
+}
+
+func getTask(exercise map[string]interface{}, taskId string) map[string]interface{} {
+	for _, v := range exercise["tasks"].([]interface{}) {
+		task := v.(map[string]interface{})
+		if task["id"] == taskId {
+			return task
+		}
+	}
+	return nil
 }
 
 func TestAddRemoveAlterTask(t *testing.T) {
@@ -141,6 +155,7 @@ func TestAddRemoveAlterTask(t *testing.T) {
 				Type: jsonpatch.ADD,
 				Path: "/tasks",
 				Value: map[string]interface{}{
+					"id":       taskId,
 					"position": 1,
 					"content":  "ein neuer erster task",
 				},
@@ -152,59 +167,34 @@ func TestAddRemoveAlterTask(t *testing.T) {
 	assert.Nil(t, err)
 	ex, err := getExercise(mapper, "f7c21557-03fc-3e99-bdff-7b065f58b39d")
 	assert.Nil(t, err)
-	hints := ex["tasks"].([]interface{})
-	assert.Equal(t, hintId, hints[0].(string))
-	hint, err := getHint(mapper, hintId)
-	assert.Nil(t, err)
-	assert.Equal(t, int(hint["cost"].(float64)), int(100))
-	assert.Equal(t, hint["content"], "ein neuer hint")
+	task := getTask(ex, taskId)
+	assert.NotNil(t, task)
+	assert.Equal(t, "ein neuer erster task", task["content"])
 	p = jsonpatch.Patch{
 		Version: 2,
 		Operations: []jsonpatch.Operation{
 			jsonpatch.Operation{
 				Type: jsonpatch.MOVE,
-				From: "/hints/1",
-				Path: "/hints/2",
+				From: "/tasks/1",
+				Path: "/tasks/2",
 			},
 			jsonpatch.Operation{
 				Type: jsonpatch.REMOVE,
-				Path: "/hints/3",
+				Path: "/tasks/3",
 			},
 			jsonpatch.Operation{
 				Type:  jsonpatch.REPLACE,
-				Path:  "/hints/3/content",
-				Value: "das ist der neue dritte hint",
-			},
-			jsonpatch.Operation{
-				Type:  jsonpatch.REPLACE,
-				Path:  "/hints/3/cost",
-				Value: 200,
+				Path:  "/tasks/3/content",
+				Value: "das ist der neue dritte task",
 			},
 		},
 	}
 	err = mapper.ApplyPatch("f7c21557-03fc-3e99-bdff-7b065f58b39d", &p, compiler)
 	assert.Nil(t, err)
 	ex, err = getExercise(mapper, "f7c21557-03fc-3e99-bdff-7b065f58b39d")
-	hints = ex["hint_ids"].([]interface{})
-	assert.Equal(t, hintId, hints[1].(string))
-	assert.Equal(t, 3, len(hints))
-	set := arrayToSet(hints)
-	assert.False(t, set["164186cb-1252-3672-a015-e8128b999bb4"])
-	assert.Equal(t, hints[2].(string), "1bcfd6c3-b269-392a-a7c0-2206f9aefcb6")
-	hint, err = getHint(mapper, "1bcfd6c3-b269-392a-a7c0-2206f9aefcb6")
-	assert.Nil(t, err)
-	assert.Equal(t, "das ist der neue dritte hint", hint["content"])
-	assert.Equal(t, 200, int(hint["cost"].(float64)))
-}
-
-func getHint(mapper *DataMapper, hintId string) (map[string]interface{}, error) {
-	result := make(map[string]interface{})
-	data, err := mapper.queryIntoBytes("SELECT get_hint($1,$2)", "233804c6-55b8-3807-9733-9c090d75decf", hintId)
-	if err != nil {
-		return nil, err
-	}
-	err = json.NewDecoder(bytes.NewReader(data)).Decode(&result)
-	return result, err
+	tasks := ex["tasks"].([]interface{})
+	assert.Equal(t, taskId, tasks[1].(map[string]interface{})["id"].(string))
+	assert.Equal(t, 3, len(tasks))
 }
 
 func getHint(mapper *DataMapper, hintId string) (map[string]interface{}, error) {
@@ -234,154 +224,3 @@ func arrayToSet(slice []interface{}) map[string]bool {
 	}
 	return result
 }
-
-/*
-func TestReplaceDescription(t *testing.T) {
-	mapper, err := prepareMapper()
-	assert.Nil(t, err)
-	assert.Nil(t, resetDatabase(mapper))
-	modules := getModules(t, mapper.db)
-	p := jsonpatch.Patch{
-		Version: 1,
-		Operations: []jsonpatch.Operation{
-			jsonpatch.Operation{
-				Type:  jsonpatch.REPLACE,
-				Path:  "/description",
-				Value: "urf urf urf",
-			},
-		},
-	}
-	compiler := lecturepatch.ForModules()
-	err = mapper.ApplyPatch(modules["foo"].Id, &p, compiler)
-	assert.Nil(t, err)
-	urf, err := getModule(mapper, "urf urf urf")
-	assert.Nil(t, err)
-	assert.Equal(t, "urf urf urf", urf["description"].(string))
-}
-
-func TestAddRemoveVideo(t *testing.T) {
-	mapper, err := prepareMapper()
-	assert.Nil(t, err)
-	assert.Nil(t, resetDatabase(mapper))
-	modules := getModules(t, mapper.db)
-	videoId := uuid.NewV4().String()
-	p := jsonpatch.Patch{
-		Version: 1,
-		Operations: []jsonpatch.Operation{
-			jsonpatch.Operation{
-				Type:  jsonpatch.ADD,
-				Path:  "/video",
-				Value: videoId,
-			},
-		},
-	}
-	compiler := lecturepatch.ForModules()
-	err = mapper.ApplyPatch(modules["foo"].Id, &p, compiler)
-	assert.Nil(t, err)
-	foo, err := getModule(mapper, "foo")
-	assert.Nil(t, err)
-	assert.Equal(t, videoId, foo["video_id"].(string))
-	p = jsonpatch.Patch{
-		Version: 2,
-		Operations: []jsonpatch.Operation{
-			jsonpatch.Operation{
-				Type: jsonpatch.REMOVE,
-				Path: "/video/" + videoId,
-			},
-		},
-	}
-	err = mapper.ApplyPatch(modules["foo"].Id, &p, compiler)
-	assert.Nil(t, err)
-	foo, err = getModule(mapper, "foo")
-	assert.Nil(t, err)
-	assert.Nil(t, foo["video_id"])
-}
-
-func TestAddRemoveScript(t *testing.T) {
-	mapper, err := prepareMapper()
-	assert.Nil(t, err)
-	assert.Nil(t, resetDatabase(mapper))
-	modules := getModules(t, mapper.db)
-	scriptId := uuid.NewV4().String()
-	p := jsonpatch.Patch{
-		Version: 1,
-		Operations: []jsonpatch.Operation{
-			jsonpatch.Operation{
-				Type:  jsonpatch.ADD,
-				Path:  "/script",
-				Value: scriptId,
-			},
-		},
-	}
-	compiler := lecturepatch.ForModules()
-	err = mapper.ApplyPatch(modules["foo"].Id, &p, compiler)
-	assert.Nil(t, err)
-	foo, err := getModule(mapper, "foo")
-	assert.Nil(t, err)
-	assert.Equal(t, scriptId, foo["script_id"].(string))
-	p = jsonpatch.Patch{
-		Version: 2,
-		Operations: []jsonpatch.Operation{
-			jsonpatch.Operation{
-				Type: jsonpatch.REMOVE,
-				Path: "/script/" + scriptId,
-			},
-		},
-	}
-	err = mapper.ApplyPatch(modules["foo"].Id, &p, compiler)
-	assert.Nil(t, err)
-	foo, err = getModule(mapper, "foo")
-	assert.Nil(t, err)
-	assert.Nil(t, foo["script_id"])
-}
-func TestAddRemoveExercise(t *testing.T) {
-	mapper, err := prepareMapper()
-	assert.Nil(t, err)
-	assert.Nil(t, resetDatabase(mapper))
-	modules := getModules(t, mapper.db)
-	exerciseId := uuid.NewV4().String()
-	p := jsonpatch.Patch{
-		Version: 1,
-		Operations: []jsonpatch.Operation{
-			jsonpatch.Operation{
-				Type: jsonpatch.ADD,
-				Path: "/exercises",
-				Value: map[string]interface{}{
-					"id":      exerciseId,
-					"backend": "java",
-					"tasks": []string{
-						"do something awesome",
-						"do something more awesome",
-					},
-				},
-			},
-		},
-	}
-	compiler := lecturepatch.ForModules()
-	err = mapper.ApplyPatch(modules["foo"].Id, &p, compiler)
-	assert.Nil(t, err)
-	foo, err := getModule(mapper, "foo")
-	assert.Nil(t, err)
-	exercises := toSet(foo["exercises"].([]interface{}), "id")
-	for _, v := range []string{exerciseId} {
-		assert.True(t, exercises[v])
-	}
-	p = jsonpatch.Patch{
-		Version: 2,
-		Operations: []jsonpatch.Operation{
-			jsonpatch.Operation{
-				Type: jsonpatch.REMOVE,
-				Path: "/exercises/" + exerciseId,
-			},
-		},
-	}
-	err = mapper.ApplyPatch(modules["foo"].Id, &p, compiler)
-	assert.Nil(t, err)
-	foo, err = getModule(mapper, "foo")
-	assert.Nil(t, err)
-	exercises = toSet(foo["exercises"].([]interface{}), "id")
-	for _, v := range []string{exerciseId} {
-		assert.False(t, exercises[v])
-	}
-}
-*/

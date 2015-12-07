@@ -3,7 +3,7 @@ package datamapper
 import "github.com/richterrettich/lecture-service/paginator"
 
 func (r *DataMapper) GetOneModule(id string) ([]byte, error) {
-	return r.queryIntoBytes(`SELECT get_module($1)`, id)
+	return r.queryIntoBytes(`SELECT details from module_details where id = $1`, id)
 }
 
 func (r *DataMapper) GetModuleRange(topicId string, dr paginator.DepthRequest) ([]byte, error) {

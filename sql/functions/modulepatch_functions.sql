@@ -68,23 +68,12 @@ RETURNS void AS $$
 $$ LANGUAGE sql;
 
 --TODO unit test
-drop function add_exercise(UUID,UUID,varchar,text[]);
-CREATE OR REPLACE FUNCTION add_exercise(in_exercise_id UUID, in_module_id UUID, in_backend varchar, tasks variadic text[]) 
+drop function add_exercise(UUID,UUID,varchar);
+CREATE OR REPLACE FUNCTION add_exercise(in_exercise_id UUID, in_module_id UUID, in_backend varchar) 
 RETURNS void AS $$
-DECLARE
-task text;
-new_position int := 1;
-BEGIN
   insert into exercises(id,module_id,backend,version) values(in_exercise_id,in_module_id,in_backend,1);
-  foreach task in ARRAY(tasks)
-  loop
-    insert into tasks(exercise_id,position,content) values(in_exercise_id,new_position,task);
-    new_position= new_position +1;
-  end loop;
   REFRESH MATERIALIZED VIEW CONCURRENTLY module_details;
-END;
-$$ LANGUAGE plpgsql;
-
+$$ LANGUAGE sql;
 
 --TODO unit test
 drop function remove_exercise(UUID,UUID);

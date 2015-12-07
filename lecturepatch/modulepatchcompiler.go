@@ -134,7 +134,7 @@ func generateAddExercise(id string, op *jsonpatch.Operation, params map[string]s
 		return nil, jsonpatch.InvalidPatchError{"Operation Not allowed here."}
 	}
 	value := op.Value.(map[string]interface{})
-	stmt, par := prepare("SELECT add_exercise(%v)", value["id"], id, value["backend"], value["tasks"])
+	stmt, par := prepare("SELECT add_exercise(%v)", value["id"], id, value["backend"])
 	return createCommand(stmt, par...), nil
 }
 

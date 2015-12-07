@@ -21,7 +21,7 @@ create unique index module_trees_index on module_trees (id,level);
 
 DROP FUNCTION IF EXISTS get_tasks_as_json(UUID);
 CREATE OR REPLACE FUNCTION get_tasks_as_json(in_exercise_id UUID)  returns json AS $$
-select json_agg(o1) from ( --no coalesce needed because one exercise has at least one task
+select coalesce(json_agg(o1),'[]') from ( 
   select ta.id,ta.content, ta.position,(select coalesce(array_agg(h.id order by h.position),'{}') from hints h where h.task_id = ta.id) as hints
   from tasks ta
   where ta.exercise_id = in_exercise_id
