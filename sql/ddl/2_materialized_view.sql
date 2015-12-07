@@ -19,25 +19,27 @@ children as (
 ALTER MATERIALIZED VIEW module_trees OWNER TO lectureapp; 
 create unique index module_trees_index on module_trees (id,level);
 
+DROP FUNCTION IF EXISTS get_tasks_as_json(UUID);
+CREATE OR REPLACE FUNCTION get_tasks_as_json(in_exercise_id UUID)  returns json AS $$
+select json_agg(o1) from ( --no coalesce needed because one exercise has at least one task
+  select ta.id,ta.content, ta.position,(select coalesce(array_agg(h.id order by h.position),'{}') from hints h where h.task_id = ta.id) as hints
+  from tasks ta
+  where ta.exercise_id = in_exercise_id
+) o1;
+$$ LANGUAGE sql;
+
+
 DROP FUNCTION IF EXISTS get_exercises_as_json(UUID);
 CREATE OR REPLACE FUNCTION get_exercises_as_json(in_module_id UUID)  returns json AS $$
-select json_agg(exercises_aggregator) from ( --aggregate exercises
-  select ex.id, ex.backend, ex.version, (
-    select json_agg(parts_aggregator) from(
-      select ta.content from tasks ta where ta.exercise_id = ex.id order by position
-    ) parts_aggregator
-    ) as parts, (
-    select json_agg(hints_aggregator) from (
-      select hi.id from hints hi where hi.exercise_id = ex.id order by position
-    ) hints_aggregator
-  ) as hint_ids
+select coalesce(json_agg(exercises_aggregator),'[]') from ( 
+  select ex.id, ex.backend, ex.version, (get_tasks_as_json(ex.id)) as tasks
   from exercises ex where ex.module_id = in_module_id
 ) exercises_aggregator;
 $$ LANGUAGE sql;
 
 DROP FUNCTION IF EXISTS get_recommendations_as_json(UUID);
 CREATE OR REPLACE FUNCTION get_recommendations_as_json(in_module_id UUID)  returns json AS $$
-select json_agg(recommendations_aggregator) from ( 
+select coalesce(json_agg(recommendations_aggregator),'[]') from ( 
   select r.recommended_id as id, m.description as description,t.id as topic_id, t.name as topic_name
   from module_recommendations r 
   inner join modules m on m.id = r.recommended_id

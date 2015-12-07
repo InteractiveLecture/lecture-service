@@ -58,11 +58,11 @@ func New(config Config) (*DataMapper, error) {
 	return &DataMapper{db}, nil
 }
 
-func rowToBytes(row *sql.Row) ([]byte, error) {
+/*func rowToBytes(row *sql.Row) ([]byte, error) {
 	var result = make([]byte, 0)
 	err := row.Scan(result)
 	return result, err
-}
+}*/
 func (mapper *DataMapper) ApplyPatch(id string, patch *jsonpatch.Patch, compiler jsonpatch.PatchCompiler) error {
 	commands, err := compiler.Compile(id, patch)
 	if err != nil {

@@ -76,97 +76,97 @@ END;
 $$ LANGUAGE plpgsql;
 
 
-
-
 DROP FUNCTION IF EXISTS get_balances(UUID);
 CREATE OR REPLACE FUNCTION get_balances(in_user_id UUID)  returns json AS $$
-DECLARE
-result json;
-BEGIN
-  select to_json(array_agg(row_to_json(o1))) into result from(
-    select b.user_id, b.topic_id,b.amount from topic_balances b where b.user_id = in_user_id) o1;
-  return result;
-END;
-$$ LANGUAGE plpgsql;
+select json_agg(o1) from(
+  select b.user_id, b.topic_id,b.amount from topic_balances b where b.user_id = in_user_id) o1;
+$$ LANGUAGE sql;
 
-DROP FUNCTION IF EXISTS get_hint_purchase_history(UUID,int,int);
-CREATE OR REPLACE FUNCTION get_hint_purchase_history(in_user_id UUID,in_limit int,in_skip int)  returns json AS $$
-DECLARE
-result json;
+DROP FUNCTION IF EXISTS get_hint_purchase_history_base(UUID,int,int);
+CREATE OR REPLACE FUNCTION get_hint_purchase_history_base(in_user_id UUID,in_limit int,in_skip int)  returns table(user_id UUID, hint_id UUID, amount smallint, event_time timestamp, exercise_id UUID)AS $$
 BEGIN
-  select to_json(array_agg(row_to_json(o1))) into result from(
-    select h.user_id, h.hint_id, h.amount, h.time 
-    from hint_purchase_histories h 
+  if in_limit = -1 AND in_skip = -1 then 
+    return query select h.user_id, h.hint_id, h.amount, h.time,hi.exercise_id
+    from hint_purchase_histories h inner join hints hi on hi.id = h.hint_id
+    where h.user_id = in_user_id
+    ORDER BY h.time;
+  elsif in_limit = -1 then
+    return query select h.user_id, h.hint_id, h.amount, h.time, hi.exercise_id 
+    from hint_purchase_histories h inner join hints hi on hi.id = h.hint_id
+    where h.user_id = in_user_id
+    ORDER BY h.time
+    OFFSET in_skip;
+
+  elsif in_skip = -1 then
+    return query select h.user_id, h.hint_id, h.amount, h.time, hi.exercise_id
+    from hint_purchase_histories h inner join hints hi on hi.id = h.hint_id
+    where h.user_id = in_user_id
+    ORDER BY h.time
+    LIMIT in_limit;
+  else
+    return query select h.user_id, h.hint_id, h.amount, h.time, hi.exercise_id
+    from hint_purchase_histories h inner join hints hi on hi.id = h.hint_id
     where h.user_id = in_user_id
     ORDER BY h.time
     LIMIT in_limit
-    OFFSET in_skip
-  ) o1;
-  return result;
+    OFFSET in_skip;
+  end if;
 END;
 $$ LANGUAGE plpgsql;
+
+
+DROP FUNCTION IF EXISTS get_hint_purchase_history(UUID,int,int);
+CREATE OR REPLACE FUNCTION get_hint_purchase_history(in_user_id UUID,in_limit int,in_skip int)  returns json AS $$
+select json_agg(o1) from(select * from get_hint_purchase_history_base(in_user_id,in_limit,in_skip)) o1;
+$$ LANGUAGE sql;
 
 DROP FUNCTION IF EXISTS get_hint_purchase_history(UUID,int,int,UUID);
 CREATE OR REPLACE FUNCTION get_hint_purchase_history(in_user_id UUID,in_limit int,in_skip int, in_exercise_id UUID)  returns json AS $$
-DECLARE
-result json;
-BEGIN
-  select to_json(array_agg(row_to_json(o1))) into result from(
-    select h.user_id, h.hint_id, h.amount, h.time 
-    from hint_purchase_histories h 
-    inner join hints hi on hi.id = h.hint_id
-    where h.user_id = in_user_id AND hi.exercise_id = in_exercise_id
-    ORDER BY h.time
-    LIMIT in_limit
-    OFFSET in_skip
-  ) o1;
-  return result;
-END;
-$$ LANGUAGE plpgsql;
-
+select json_agg(o1) from(select * from get_hint_purchase_history_base(in_user_id,in_limit,in_skip) where exercise_id = in_exercise_id) o1;
+$$ LANGUAGE sql;
 
 
 DROP FUNCTION IF EXISTS get_module_history_base(UUID,int,int);
 CREATE OR REPLACE FUNCTION get_module_history_base(in_user_id UUID,in_limit int,in_skip int)  returns table(user_id UUID, module_id UUID, amount smallint, description text, event_time timestamp, event_type varchar, topic_id UUID)AS $$
 BEGIN
-if in_limit = -1 AND in_skip = -1 then
-  return query
-  select h.user_id, h.module_id, h.amount, m.description, h.time, ps.description,m.topic_id
-  from module_progress_histories h 
-  inner join modules m on h.module_id = m.id
-  inner join progress_state ps on h.state = ps.id
-  where h.user_id = in_user_id
-  ORDER BY h.time;
+  if in_limit = -1 AND in_skip = -1 then
+    return query
+    select h.user_id, h.module_id, h.amount, m.description, h.time, ps.description,m.topic_id
+    from module_progress_histories h 
+    inner join modules m on h.module_id = m.id
+    inner join progress_state ps on h.state = ps.id
+    where h.user_id = in_user_id
+    ORDER BY h.time;
 
-elsif in_limit = -1 then
-  return query
-  select h.user_id, h.module_id, h.amount, m.description, h.time, ps.description,m.topic_id
-  from module_progress_histories h 
-  inner join modules m on h.module_id = m.id
-  inner join progress_state ps on h.state = ps.id
-  where h.user_id = in_user_id
-  ORDER BY h.time
-  OFFSET in_skip;
-elsif in_skip = -1 then
-  return query
-  select h.user_id, h.module_id, h.amount, m.description, h.time, ps.description, m.topic_id
-  from module_progress_histories h 
-  inner join modules m on h.module_id = m.id
-  inner join progress_state ps on h.state = ps.id
-  where h.user_id = in_user_id
-  ORDER BY h.time
-  LIMIT in_limit;
-else 
-  return query
-  select h.user_id, h.module_id, h.amount, m.description, h.time, ps.description,m.topic_id
-  from module_progress_histories h 
-  inner join modules m on h.module_id = m.id
-  inner join progress_state ps on h.state = ps.id
-  where h.user_id = in_user_id
-  ORDER BY h.time
-  LIMIT in_limit
-  OFFSET in_skip;
-end if;
+  elsif in_limit = -1 then
+    return query
+    select h.user_id, h.module_id, h.amount, m.description, h.time, ps.description,m.topic_id
+    from module_progress_histories h 
+    inner join modules m on h.module_id = m.id
+    inner join progress_state ps on h.state = ps.id
+    where h.user_id = in_user_id
+    ORDER BY h.time
+    OFFSET in_skip;
+  elsif in_skip = -1 then
+    return query
+    select h.user_id, h.module_id, h.amount, m.description, h.time, ps.description, m.topic_id
+    from module_progress_histories h 
+    inner join modules m on h.module_id = m.id
+    inner join progress_state ps on h.state = ps.id
+    where h.user_id = in_user_id
+    ORDER BY h.time
+    LIMIT in_limit;
+  else 
+    return query
+    select h.user_id, h.module_id, h.amount, m.description, h.time, ps.description,m.topic_id
+    from module_progress_histories h 
+    inner join modules m on h.module_id = m.id
+    inner join progress_state ps on h.state = ps.id
+    where h.user_id = in_user_id
+    ORDER BY h.time
+    LIMIT in_limit
+    OFFSET in_skip;
+  end if;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -254,7 +254,7 @@ CREATE OR REPLACE FUNCTION get_hint(in_user_id UUID,in_hint_id UUID)  returns js
 DECLARE
 result json;
 BEGIN
-  if EXISTS( select 1 from hint_purchas_histories where user_id = in_user_id AND hint_id = in_hint_id) OR  
+  if EXISTS( select 1 from hint_purchase_histories where user_id = in_user_id AND hint_id = in_hint_id) OR  
     EXISTS(select 1 
       from topic_authority ta inner join topics t on ta.topic_id = t.id 
       inner join modules m on t.id = m.topic_id
@@ -272,20 +272,24 @@ $$ LANGUAGE plpgsql;
 
 DROP FUNCTION IF EXISTS get_next_modules_for_user(UUID);
 CREATE OR REPLACE FUNCTION get_next_modules_for_user(in_user_id UUID)  returns json AS $$
-DECLARE
-result json;
-BEGIN
-  select to_json(array_agg(row_to_json(o1))) into result from (
-    select mp.child_id as id,m.description,t.id as topic_id,t.name as topic_name
-    from module_progress_histories mh 
-    inner join module_parents mp on mp.parent_id = mh.module_id 
-    inner join modules m on m.id = mp.child_id 
-    inner join topics t on t.id = m.topic_id 
-    where mp.child_id not in (select module_id from module_progress_histories where state = 2) 
-    AND mh.state = 2 
-    AND mh.user_id = in_user_id) o1;
-  return result;
-END;
-$$ LANGUAGE plpgsql;
+select json_agg(o1) from (
+  select mp.child_id as id,m.description,t.id as topic_id,t.name as topic_name
+  from module_progress_histories mh 
+  inner join module_parents mp on mp.parent_id = mh.module_id 
+  inner join modules m on m.id = mp.child_id 
+  inner join topics t on t.id = m.topic_id 
+  where mp.child_id not in (select module_id from module_progress_histories where state = 2) 
+  AND mh.state = 2 
+  AND mh.user_id = in_user_id) o1;
+$$ LANGUAGE sql;
+
+DROP FUNCTION IF EXISTS get_one_exercise_as_json(UUID);
+CREATE OR REPLACE FUNCTION get_one_exercise_as_json(in_exercise_id UUID)  returns json AS $$
+select row_to_json(exercises_aggregator) from ( 
+  select ex.id, ex.backend, ex.version, (get_tasks_as_json(ex.id))
+  from exercises ex where ex.id = in_exercise_id
+) exercises_aggregator;
+$$ LANGUAGE sql;
+
 
 

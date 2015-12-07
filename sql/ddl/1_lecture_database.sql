@@ -21,9 +21,6 @@ drop table if exists module_parents cascade;
 drop table if exists module_recommendations cascade;
 drop table if exists progress_state cascade;
 
-
-
-
 create table topics (
   id UUID PRIMARY KEY,
   name VARCHAR(256) NOT NULL,
@@ -49,22 +46,22 @@ create table exercises (
 );
 
 create table tasks (
+  id UUID PRIMARY KEY,
   exercise_id UUID REFERENCES exercises(id) ON DELETE CASCADE,
   position int NOT NULL CHECK(position > 0),
   content text NOT NULL,
-  PRIMARY KEY(exercise_id, position)
+  UNIQUE(exercise_id,position) DEFERRABLE INITIALLY DEFERRED
+
 );
 
 create table hints (
   id UUID PRIMARY KEY,
-  exercise_id UUID REFERENCES exercises(id) ON DELETE CASCADE,
+  task_id UUID REFERENCES exercises(id) ON DELETE CASCADE,
   position int NOT NULL CHECK(position > 0),
   content TEXT NOT NULL,
-  cost SMALLINT NOT NULL CHECK(cost > 0),
-  UNIQUE(exercise_id, position)
+  cost INT NOT NULL CHECK(cost > 0),
+  UNIQUE(task_id, position) DEFERRABLE INITIALLY DEFERRED
 );
-
-
 
 create table topic_authority (
   topic_id UUID references topics(id) ON DELETE CASCADE,
@@ -75,7 +72,7 @@ create table topic_authority (
 create table topic_balances (
   user_id UUID,
   topic_id UUID references topics(id) ON DELETE CASCADE,
-  amount SMALLINT NOT NULL CHECK(amount >= 0),
+  amount INT NOT NULL CHECK(amount >= 0),
   PRIMARY KEY(user_id,topic_id)
 );
 

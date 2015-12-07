@@ -11,7 +11,7 @@ func (r *DataMapper) CompleteExercise(exerciseId, userId string) error {
 }
 
 func (r *DataMapper) GetHint(hintId, userId string) ([]byte, error) {
-	result, err := rowToBytes(r.db.QueryRow(`SELECT get_hint($1,$2)`, userId, hintId))
+	result, err := r.queryIntoBytes(`SELECT get_hint($1,$2)`, userId, hintId)
 	switch {
 	case err != nil:
 		return nil, err
@@ -22,9 +22,9 @@ func (r *DataMapper) GetHint(hintId, userId string) ([]byte, error) {
 }
 
 func (r *DataMapper) PurchaseHint(hintId, userId string) error {
-	row := r.db.QueryRow("SELECT purchase_hint($1,$2)", userId, hintId)
+	row := r.db.QueryRow("SELECT purchase_hint($1,$2)", hintId, userId)
 	var purchaseResult int
-	err := row.Scan(purchaseResult)
+	err := row.Scan(&purchaseResult)
 	if err != nil {
 		return err
 	}

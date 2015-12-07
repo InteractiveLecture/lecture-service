@@ -121,13 +121,13 @@ insert into topic_authority values (uuid_generate_v3(uuid_ns_url(),'topic_2'),uu
 insert into exercises values (uuid_generate_v3(uuid_ns_url(),'exercise_1'),uuid_generate_v3(uuid_ns_url(),'module_1'),'java',1);
 insert into tasks values (uuid_generate_v3(uuid_ns_url(),'exercise_1'),1,'do something');
 
-insert into tasks values (uuid_generate_v3(uuid_ns_url(),'exercise_1'),2,'do something');
-insert into tasks values (uuid_generate_v3(uuid_ns_url(),'exercise_1'),3,'do something');
+insert into tasks values (uuid_generate_v3(uuid_ns_url(),'exercise_1'),2,'do more');
+insert into tasks values (uuid_generate_v3(uuid_ns_url(),'exercise_1'),3,'end something');
 
 
 insert into hints values (uuid_generate_v3(uuid_ns_url(),'hint_1'),uuid_generate_v3(uuid_ns_url(),'exercise_1'),1,'take a hint',100);
 insert into hints values (uuid_generate_v3(uuid_ns_url(),'hint_2'),uuid_generate_v3(uuid_ns_url(),'exercise_1'),2,'take another hint',100);
-
+insert into hints values (uuid_generate_v3(uuid_ns_url(),'hint_3'),uuid_generate_v3(uuid_ns_url(),'exercise_1'),3,'take yet another hint',100);
 
 
 insert into exercises values (uuid_generate_v3(uuid_ns_url(),'exercise_2'),uuid_generate_v3(uuid_ns_url(),'module_1'),'java',1);

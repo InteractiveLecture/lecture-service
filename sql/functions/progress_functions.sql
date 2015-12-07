@@ -44,7 +44,7 @@ BEGIN
   if not exists(select 1 from hints where id = in_hint_id) then
     return 3;
   end if;
-  select tb.balance, h.cost ,tb.topic_id into user_balance , hint_cost , hint_topic_id 
+  select tb.amount, h.cost ,tb.topic_id into user_balance , hint_cost , hint_topic_id 
   from topic_balances tb 
   inner join modules m on m.topic_id = tb.topic_id
   inner join exercises e on e.module_id = m.id
@@ -57,7 +57,7 @@ BEGIN
 
   insert into hint_purchase_histories(user_id,hint_id,amount,time) values(in_user_id,in_hint_id,hint_cost,now());
 
-  update topic_balances set balance = balance - hint_cost where user_id = in_user_id AND topic_id = hint_topic_id;
+  update topic_balances set amount = amount - hint_cost where user_id = in_user_id AND topic_id = hint_topic_id;
   return 0;
 END;
 $$ LANGUAGE plpgsql;

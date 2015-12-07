@@ -7,24 +7,39 @@ import (
 )
 
 func (r *DataMapper) GetHintHistory(userId string, pr paginator.PageRequest, exerciseId string) ([]byte, error) {
+	limit := pr.Size
+	skip := pr.Size * pr.Number
+	if pr.Number == -1 || pr.Size == -1 {
+		skip = -1
+	}
 	if exerciseId != "" {
 		return r.queryIntoBytes("SELECT get_hint_purchase_history($1,$2,$3,$4)", userId, pr.Size, pr.Size*pr.Number, exerciseId)
 	}
-	return r.queryIntoBytes(`SELECT get_hint_purchase_history($1,$2,$3)`, userId, pr.Size, pr.Size*pr.Number)
+	return r.queryIntoBytes(`SELECT get_hint_purchase_history($1,$2,$3)`, userId, limit, skip)
 }
 
 func (r *DataMapper) GetModuleHistory(userId string, pr paginator.PageRequest, topicId string) ([]byte, error) {
-	if topicId != "" {
-		return r.queryIntoBytes(`SELECT get_module_history($1,$2,$3,$4)`, userId, pr.Size, pr.Size*pr.Number, topicId)
+	limit := pr.Size
+	skip := pr.Size * pr.Number
+	if pr.Number == -1 || pr.Size == -1 {
+		skip = -1
 	}
-	return r.queryIntoBytes(`SELECT get_module_history($1,$2,$3)`, userId, pr.Size, pr.Size*pr.Number)
+	if topicId != "" {
+		return r.queryIntoBytes(`SELECT get_module_history($1,$2,$3,$4)`, userId, limit, skip, topicId)
+	}
+	return r.queryIntoBytes(`SELECT get_module_history($1,$2,$3)`, userId, limit, skip)
 }
 
 func (r *DataMapper) GetExerciseHistory(userId string, pr paginator.PageRequest, moduleId string) ([]byte, error) {
-	if moduleId != "" {
-		return r.queryIntoBytes(`SELECT get_exercise_history($1,$2,$3,$4)`, userId, pr.Size, pr.Size*pr.Number, moduleId)
+	limit := pr.Size
+	skip := pr.Size * pr.Number
+	if pr.Number == -1 || pr.Size == -1 {
+		skip = -1
 	}
-	return r.queryIntoBytes(`SELECT get_exercise_history($1,$2,$3)`, userId, pr.Size, pr.Size*pr.Number)
+	if moduleId != "" {
+		return r.queryIntoBytes(`SELECT get_exercise_history($1,$2,$3,$4)`, userId, limit, skip, moduleId)
+	}
+	return r.queryIntoBytes(`SELECT get_exercise_history($1,$2,$3)`, userId, limit, skip)
 }
 
 func (r *DataMapper) GetNextModulesForUser(id string) ([]byte, error) {

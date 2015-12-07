@@ -2,6 +2,7 @@ package lecturepatch
 
 import (
 	"fmt"
+	"log"
 	"strconv"
 	"strings"
 
@@ -130,10 +131,12 @@ func generateMoveOrRemoveHint(id string, op *jsonpatch.Operation, params map[str
 			return nil, jsonpatch.InvalidPatchError{"From is not valid."}
 		}
 		oldPosition, err := strconv.Atoi(fromParts[1])
+		log.Println("old position is ", oldPosition)
 		if err != nil {
 			return nil, jsonpatch.InvalidPatchError{"From is not valid."}
 		}
 		newPosition, err := strconv.Atoi(params["hintPosition"])
+		log.Println("new position is ", newPosition)
 		if err != nil {
 			return nil, jsonpatch.InvalidPatchError{"Position is not valid."}
 		}
