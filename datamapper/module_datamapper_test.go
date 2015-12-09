@@ -53,7 +53,7 @@ func TestAddRemoveRecommendation(t *testing.T) {
 		},
 	}
 	compiler := lecturepatch.ForModules()
-	err = mapper.ApplyPatch(modules["foo"].Id, &p, compiler)
+	err = mapper.ApplyPatch(modules["foo"].Id, "f20919fa-08bd-3a8d-9e3c-e3406c680162", &p, compiler)
 	assert.Nil(t, err)
 	foo, err := getModule(mapper, "foo")
 	assert.Nil(t, err)
@@ -70,7 +70,7 @@ func TestAddRemoveRecommendation(t *testing.T) {
 			},
 		},
 	}
-	err = mapper.ApplyPatch(modules["foo"].Id, &p, compiler)
+	err = mapper.ApplyPatch(modules["foo"].Id, "f20919fa-08bd-3a8d-9e3c-e3406c680162", &p, compiler)
 	foo, err = getModule(mapper, "foo")
 	assert.Nil(t, err)
 	recommendations = toSet(foo["recommendations"].([]interface{}), "id")
@@ -95,7 +95,7 @@ func TestReplaceDescription(t *testing.T) {
 		},
 	}
 	compiler := lecturepatch.ForModules()
-	err = mapper.ApplyPatch(modules["foo"].Id, &p, compiler)
+	err = mapper.ApplyPatch(modules["foo"].Id, "f20919fa-08bd-3a8d-9e3c-e3406c680162", &p, compiler)
 	assert.Nil(t, err)
 	urf, err := getModule(mapper, "urf urf urf")
 	assert.Nil(t, err)
@@ -119,7 +119,7 @@ func TestAddRemoveVideo(t *testing.T) {
 		},
 	}
 	compiler := lecturepatch.ForModules()
-	err = mapper.ApplyPatch(modules["foo"].Id, &p, compiler)
+	err = mapper.ApplyPatch(modules["foo"].Id, "f20919fa-08bd-3a8d-9e3c-e3406c680162", &p, compiler)
 	assert.Nil(t, err)
 	foo, err := getModule(mapper, "foo")
 	assert.Nil(t, err)
@@ -133,7 +133,7 @@ func TestAddRemoveVideo(t *testing.T) {
 			},
 		},
 	}
-	err = mapper.ApplyPatch(modules["foo"].Id, &p, compiler)
+	err = mapper.ApplyPatch(modules["foo"].Id, "f20919fa-08bd-3a8d-9e3c-e3406c680162", &p, compiler)
 	assert.Nil(t, err)
 	foo, err = getModule(mapper, "foo")
 	assert.Nil(t, err)
@@ -157,7 +157,7 @@ func TestAddRemoveScript(t *testing.T) {
 		},
 	}
 	compiler := lecturepatch.ForModules()
-	err = mapper.ApplyPatch(modules["foo"].Id, &p, compiler)
+	err = mapper.ApplyPatch(modules["foo"].Id, "f20919fa-08bd-3a8d-9e3c-e3406c680162", &p, compiler)
 	assert.Nil(t, err)
 	foo, err := getModule(mapper, "foo")
 	assert.Nil(t, err)
@@ -171,7 +171,7 @@ func TestAddRemoveScript(t *testing.T) {
 			},
 		},
 	}
-	err = mapper.ApplyPatch(modules["foo"].Id, &p, compiler)
+	err = mapper.ApplyPatch(modules["foo"].Id, "f20919fa-08bd-3a8d-9e3c-e3406c680162", &p, compiler)
 	assert.Nil(t, err)
 	foo, err = getModule(mapper, "foo")
 	assert.Nil(t, err)
@@ -201,7 +201,7 @@ func TestAddRemoveExercise(t *testing.T) {
 		},
 	}
 	compiler := lecturepatch.ForModules()
-	err = mapper.ApplyPatch(modules["foo"].Id, &p, compiler)
+	err = mapper.ApplyPatch(modules["foo"].Id, "f20919fa-08bd-3a8d-9e3c-e3406c680162", &p, compiler)
 	assert.Nil(t, err)
 	foo, err := getModule(mapper, "foo")
 	assert.Nil(t, err)
@@ -218,7 +218,7 @@ func TestAddRemoveExercise(t *testing.T) {
 			},
 		},
 	}
-	err = mapper.ApplyPatch(modules["foo"].Id, &p, compiler)
+	err = mapper.ApplyPatch(modules["foo"].Id, "f20919fa-08bd-3a8d-9e3c-e3406c680162", &p, compiler)
 	assert.Nil(t, err)
 	foo, err = getModule(mapper, "foo")
 	assert.Nil(t, err)

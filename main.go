@@ -7,6 +7,7 @@ import (
 
 	"github.com/InteractiveLecture/id-extractor"
 	"github.com/gorilla/mux"
+	"github.com/nats-io/nats"
 	"github.com/richterrettich/lecture-service/datamapper"
 	"github.com/richterrettich/lecture-service/handler"
 )
@@ -19,6 +20,8 @@ func main() {
 	dbSsl := flag.Bool("dbssl", false, "database ssl config")
 	dbName := flag.String("dbname", "lecture", "the database name")
 	dbPassword := flag.String("dbpass", "", "database password")
+	natsHost := flag.String("natshost", "nats", "host of nats")
+	natsPort := flag.String("natsport", "4222", "port of nats")
 	flag.Parse()
 	config := datamapper.DefaultConfig()
 	config.Host = *dbHost
@@ -31,10 +34,6 @@ func main() {
 	mapper, err := datamapper.New(config)
 	if err != nil {
 		panic(err)
-	}
-
-	if testData {
-
 	}
 
 	extractor := idextractor.MuxIdExtractor("id")
@@ -104,6 +103,28 @@ func main() {
 		Methods("POST").
 		Handler(handler.ExerciseHistoryHandler(mapper, extractor))
 
+	nc, err := nats.Connect("nats://" + *natsHost + ":" + *natsPort)
+	if err != nil {
+		panic(err)
+	}
+	nc.Subscribe("authentication-service.user-created", func(m *nats.Msg) {
+		go func() {
+			log.Println("got user with id ", string(m.Data))
+			err = mapper.InsertUser(string(m.Data))
+			if err != nil {
+				log.Println(err)
+			}
+		}()
+	})
+	nc.Subscribe("authentication-service.user-deleted", func(m *nats.Msg) {
+		go func() {
+			log.Println("delete user with id ", string(m.Data))
+			err = mapper.RemoveUser(string(m.Data))
+			if err != nil {
+				log.Println(err)
+			}
+		}()
+	})
 	log.Println("listening on port 8080")
 	log.Fatal(http.ListenAndServe(":8080", r))
 }

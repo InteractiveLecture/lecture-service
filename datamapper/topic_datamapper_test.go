@@ -129,7 +129,7 @@ func TestMoveSingle(t *testing.T) {
 		},
 	}
 	compiler := lecturepatch.ForTopics()
-	err = mapper.ApplyPatch(modules["foo"].topicId, &p, compiler)
+	err = mapper.ApplyPatch(modules["foo"].topicId, "f20919fa-08bd-3a8d-9e3c-e3406c680162", &p, compiler)
 	assert.Nil(t, err)
 	modules = getModules(t, db)
 	assert.Equal(t, len(modules), 7) //lenght shouldnt have changed.
@@ -164,7 +164,7 @@ func TestMoveTree(t *testing.T) {
 		},
 	}
 	compiler := lecturepatch.ForTopics()
-	err = mapper.ApplyPatch(modules["foo"].topicId, &p, compiler)
+	err = mapper.ApplyPatch(modules["foo"].topicId, "f20919fa-08bd-3a8d-9e3c-e3406c680162", &p, compiler)
 	assert.Nil(t, err)
 
 	assert.Nil(t, err)
@@ -203,7 +203,7 @@ func TestInsertModule(t *testing.T) {
 	}
 
 	compiler := lecturepatch.ForTopics()
-	err = mapper.ApplyPatch(modules["foo"].topicId, &p, compiler)
+	err = mapper.ApplyPatch(modules["foo"].topicId, "f20919fa-08bd-3a8d-9e3c-e3406c680162", &p, compiler)
 	assert.Nil(t, err)
 
 	modules = getModules(t, db)
@@ -239,7 +239,8 @@ func TestDeleteModule(t *testing.T) {
 		},
 	}
 	compiler := lecturepatch.ForTopics()
-	err = mapper.ApplyPatch(modules["foo"].topicId, &p, compiler)
+	err = mapper.ApplyPatch(modules["foo"].topicId, "f20919fa-08bd-3a8d-9e3c-e3406c680162", &p, compiler)
+
 	assert.Nil(t, err)
 	modules = getModules(t, db)
 	assert.Equal(t, 4, len(modules))
@@ -274,7 +275,7 @@ func TestDeleteModuleTree(t *testing.T) {
 		},
 	}
 	compiler := lecturepatch.ForTopics()
-	err = mapper.ApplyPatch(modules["foo"].topicId, &p, compiler)
+	err = mapper.ApplyPatch(modules["foo"].topicId, "f20919fa-08bd-3a8d-9e3c-e3406c680162", &p, compiler)
 	assert.Nil(t, err)
 	modules = getModules(t, db)
 	assert.Equal(t, 3, len(modules))

@@ -14,7 +14,8 @@ func ForModules() jsonpatch.PatchCompiler {
 	return ModulePatchCompiler{}
 }
 
-func (compiler ModulePatchCompiler) Compile(id string, patch *jsonpatch.Patch) (*jsonpatch.CommandList, error) {
+func (compiler ModulePatchCompiler) Compile(patch *jsonpatch.Patch, options map[string]interface{}) (*jsonpatch.CommandList, error) {
+	id, userId := options["id"].(string), options["userId"].(string)
 	result := &jsonpatch.CommandList{}
 	router := &urlrouter.Router{
 		Routes: []urlrouter.Route{
@@ -62,7 +63,7 @@ func (compiler ModulePatchCompiler) Compile(id string, patch *jsonpatch.Patch) (
 	if err != nil {
 		return nil, err
 	}
-	err = translatePatch(result, id, router, patch)
+	err = translatePatch(result, id, userId, router, patch)
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +73,7 @@ func (compiler ModulePatchCompiler) Compile(id string, patch *jsonpatch.Patch) (
 }
 
 // database checked
-func generateReplaceDescription(id string, op *jsonpatch.Operation, params map[string]string) (jsonpatch.CommandContainer, error) {
+func generateReplaceDescription(id, userId string, op *jsonpatch.Operation, params map[string]string) (jsonpatch.CommandContainer, error) {
 	if op.Type != jsonpatch.REPLACE {
 		return nil, jsonpatch.InvalidPatchError{"Operation Not allowed here."}
 	}
@@ -81,7 +82,7 @@ func generateReplaceDescription(id string, op *jsonpatch.Operation, params map[s
 }
 
 //database checked
-func generateAddRecommendation(id string, op *jsonpatch.Operation, params map[string]string) (jsonpatch.CommandContainer, error) {
+func generateAddRecommendation(id, userId string, op *jsonpatch.Operation, params map[string]string) (jsonpatch.CommandContainer, error) {
 	if op.Type != jsonpatch.ADD {
 		return nil, jsonpatch.InvalidPatchError{"Operation Not allowed here."}
 	}
@@ -89,7 +90,7 @@ func generateAddRecommendation(id string, op *jsonpatch.Operation, params map[st
 }
 
 //database checked
-func generateRemoveRecommendation(id string, op *jsonpatch.Operation, params map[string]string) (jsonpatch.CommandContainer, error) {
+func generateRemoveRecommendation(id, userId string, op *jsonpatch.Operation, params map[string]string) (jsonpatch.CommandContainer, error) {
 	if op.Type != jsonpatch.REMOVE {
 		return nil, jsonpatch.InvalidPatchError{"Operation Not allowed here."}
 	}
@@ -97,7 +98,7 @@ func generateRemoveRecommendation(id string, op *jsonpatch.Operation, params map
 }
 
 //database checked
-func generateAddVideo(id string, op *jsonpatch.Operation, params map[string]string) (jsonpatch.CommandContainer, error) {
+func generateAddVideo(id, userId string, op *jsonpatch.Operation, params map[string]string) (jsonpatch.CommandContainer, error) {
 	if op.Type != jsonpatch.ADD {
 		return nil, jsonpatch.InvalidPatchError{"Operation Not allowed here."}
 	}
@@ -105,7 +106,7 @@ func generateAddVideo(id string, op *jsonpatch.Operation, params map[string]stri
 }
 
 // database checked
-func generateRemoveVideo(id string, op *jsonpatch.Operation, params map[string]string) (jsonpatch.CommandContainer, error) {
+func generateRemoveVideo(id, userId string, op *jsonpatch.Operation, params map[string]string) (jsonpatch.CommandContainer, error) {
 	if op.Type != jsonpatch.REMOVE {
 		return nil, jsonpatch.InvalidPatchError{"Operation Not allowed here."}
 	}
@@ -113,7 +114,7 @@ func generateRemoveVideo(id string, op *jsonpatch.Operation, params map[string]s
 }
 
 //database checked
-func generateAddScript(id string, op *jsonpatch.Operation, params map[string]string) (jsonpatch.CommandContainer, error) {
+func generateAddScript(id, userId string, op *jsonpatch.Operation, params map[string]string) (jsonpatch.CommandContainer, error) {
 	if op.Type != jsonpatch.ADD {
 		return nil, jsonpatch.InvalidPatchError{"Operation Not allowed here."}
 	}
@@ -121,7 +122,7 @@ func generateAddScript(id string, op *jsonpatch.Operation, params map[string]str
 }
 
 //dataase checked
-func generateRemoveScript(id string, op *jsonpatch.Operation, params map[string]string) (jsonpatch.CommandContainer, error) {
+func generateRemoveScript(id, userId string, op *jsonpatch.Operation, params map[string]string) (jsonpatch.CommandContainer, error) {
 	if op.Type != jsonpatch.REMOVE {
 		return nil, jsonpatch.InvalidPatchError{"Operation Not allowed here."}
 	}
@@ -129,17 +130,18 @@ func generateRemoveScript(id string, op *jsonpatch.Operation, params map[string]
 }
 
 //database checked
-func generateAddExercise(id string, op *jsonpatch.Operation, params map[string]string) (jsonpatch.CommandContainer, error) {
+func generateAddExercise(id, userId string, op *jsonpatch.Operation, params map[string]string) (jsonpatch.CommandContainer, error) {
 	if op.Type != jsonpatch.ADD {
 		return nil, jsonpatch.InvalidPatchError{"Operation Not allowed here."}
 	}
 	value := op.Value.(map[string]interface{})
+
 	stmt, par := prepare("SELECT add_exercise(%v)", value["id"], id, value["backend"])
 	return createCommand(stmt, par...), nil
 }
 
 //database checked
-func generateRemoveExercise(id string, op *jsonpatch.Operation, params map[string]string) (jsonpatch.CommandContainer, error) {
+func generateRemoveExercise(id, userId string, op *jsonpatch.Operation, params map[string]string) (jsonpatch.CommandContainer, error) {
 	if op.Type != jsonpatch.REMOVE {
 		return nil, jsonpatch.InvalidPatchError{"Operation Not allowed here."}
 	}

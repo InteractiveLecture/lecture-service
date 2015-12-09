@@ -30,6 +30,16 @@ func (r *DataMapper) GetModuleHistory(userId string, pr paginator.PageRequest, t
 	return r.queryIntoBytes(`SELECT get_module_history($1,$2,$3)`, userId, limit, skip)
 }
 
+func (r *DataMapper) InsertUser(userId string) error {
+	_, err := r.db.Exec("SELECT add_user($1)", userId)
+	return err
+}
+
+func (r *DataMapper) RemoveUser(userId string) error {
+	_, err := r.db.Exec("SELECT remove_user($1)", userId)
+	return err
+}
+
 func (r *DataMapper) GetExerciseHistory(userId string, pr paginator.PageRequest, moduleId string) ([]byte, error) {
 	limit := pr.Size
 	skip := pr.Size * pr.Number

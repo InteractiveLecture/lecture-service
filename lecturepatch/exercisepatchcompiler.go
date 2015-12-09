@@ -72,11 +72,12 @@ func init() {
 	}
 }
 
-func (c *ExercisePatchCompiler) Compile(id string, patch *jsonpatch.Patch) (*jsonpatch.CommandList, error) {
+func (c *ExercisePatchCompiler) Compile(patch *jsonpatch.Patch, options map[string]interface{}) (*jsonpatch.CommandList, error) {
+	id, userId := options["id"].(string), options["userId"].(string)
 	result := NewCommandList()
 	AddCommand(result, "SET TRANSACTION ISOLATION LEVEL SERIALIZABLE")
 	AddCommand(result, "SELECT check_version($1,$2,$3)", id, "exercises", patch.Version)
-	err := translatePatch(result, id, &patchRouter, patch)
+	err := translatePatch(result, id, userId, &patchRouter, patch)
 	if err != nil {
 		return nil, err
 	}
@@ -85,7 +86,7 @@ func (c *ExercisePatchCompiler) Compile(id string, patch *jsonpatch.Patch) (*jso
 }
 
 //database checked
-func generateAddTask(id string, op *jsonpatch.Operation, params map[string]string) (jsonpatch.CommandContainer, error) {
+func generateAddTask(id, userId string, op *jsonpatch.Operation, params map[string]string) (jsonpatch.CommandContainer, error) {
 	values := op.Value.(map[string]interface{})
 	if op.Type != jsonpatch.ADD {
 		return nil, jsonpatch.InvalidPatchError{fmt.Sprintf("Only add allowed for %s", op.Path)}
@@ -95,7 +96,7 @@ func generateAddTask(id string, op *jsonpatch.Operation, params map[string]strin
 }
 
 // database checked
-func generateMoveOrRemoveTask(id string, op *jsonpatch.Operation, params map[string]string) (jsonpatch.CommandContainer, error) {
+func generateMoveOrRemoveTask(id, userId string, op *jsonpatch.Operation, params map[string]string) (jsonpatch.CommandContainer, error) {
 	switch op.Type {
 	case jsonpatch.REMOVE:
 		newPosition, err := strconv.Atoi(params["taskPosition"])
@@ -139,7 +140,7 @@ func evalFromRoute(from, checkString string, params ...string) ([]int, error) {
 }
 
 //database checked
-func generateAddHint(id string, op *jsonpatch.Operation, params map[string]string) (jsonpatch.CommandContainer, error) {
+func generateAddHint(id, userId string, op *jsonpatch.Operation, params map[string]string) (jsonpatch.CommandContainer, error) {
 	if op.Type != jsonpatch.ADD {
 		return nil, jsonpatch.InvalidPatchError{fmt.Sprintf("Only add allowed for %s", op.Path)}
 	}
@@ -153,7 +154,7 @@ func generateAddHint(id string, op *jsonpatch.Operation, params map[string]strin
 }
 
 //database checked
-func generateMoveOrRemoveHint(id string, op *jsonpatch.Operation, params map[string]string) (jsonpatch.CommandContainer, error) {
+func generateMoveOrRemoveHint(id, userId string, op *jsonpatch.Operation, params map[string]string) (jsonpatch.CommandContainer, error) {
 	switch op.Type {
 	case jsonpatch.REMOVE:
 		taskPosition, err := strconv.Atoi(params["taskPosition"])
@@ -187,7 +188,7 @@ func generateMoveOrRemoveHint(id string, op *jsonpatch.Operation, params map[str
 }
 
 //database checked
-func generateUpdateHintContent(id string, op *jsonpatch.Operation, params map[string]string) (jsonpatch.CommandContainer, error) {
+func generateUpdateHintContent(id, userId string, op *jsonpatch.Operation, params map[string]string) (jsonpatch.CommandContainer, error) {
 	if op.Type != jsonpatch.REPLACE {
 		return nil, jsonpatch.InvalidPatchError{fmt.Sprintf("Only add allowed for %s", op.Path)}
 	}
@@ -204,7 +205,7 @@ func generateUpdateHintContent(id string, op *jsonpatch.Operation, params map[st
 }
 
 //database checked
-func generateUpdateHintCost(id string, op *jsonpatch.Operation, params map[string]string) (jsonpatch.CommandContainer, error) {
+func generateUpdateHintCost(id, userId string, op *jsonpatch.Operation, params map[string]string) (jsonpatch.CommandContainer, error) {
 	if op.Type != jsonpatch.REPLACE {
 		return nil, jsonpatch.InvalidPatchError{fmt.Sprintf("Only add allowed for %s", op.Path)}
 	}
@@ -221,7 +222,7 @@ func generateUpdateHintCost(id string, op *jsonpatch.Operation, params map[strin
 }
 
 //database checked
-func generateUpdateTaskCommand(id string, op *jsonpatch.Operation, params map[string]string) (jsonpatch.CommandContainer, error) {
+func generateUpdateTaskCommand(id, userId string, op *jsonpatch.Operation, params map[string]string) (jsonpatch.CommandContainer, error) {
 	if op.Type != jsonpatch.REPLACE {
 		return nil, jsonpatch.InvalidPatchError{fmt.Sprintf("Only add allowed for %s", op.Path)}
 	}

@@ -1,8 +1,12 @@
 package lecturepatch
 
 import (
+	"strings"
+
+	"github.com/InteractiveLecture/serviceclient"
 	"github.com/ant0ine/go-urlrouter"
 	"github.com/richterrettich/jsonpatch"
+	"github.com/satori/go.uuid"
 )
 
 type TopicPatchCompiler struct{}
@@ -12,28 +16,28 @@ func ForTopics() jsonpatch.PatchCompiler {
 }
 
 //database checked
-func generateAddModule(id string, op *jsonpatch.Operation, params map[string]string) (jsonpatch.CommandContainer, error) {
+func generateAddModule(id, userId string, op *jsonpatch.Operation, params map[string]string) (jsonpatch.CommandContainer, error) {
 	if op.Type != jsonpatch.ADD {
 		return nil, jsonpatch.InvalidPatchError{"Operation not allowed here"}
 	}
 	value := op.Value.(map[string]interface{})
 	stmt, parameters := prepare("SELECT add_module(%v)", value["id"], id, value["description"], value["video_id"], value["script_id"], value["parents"])
 	command := createCommand(stmt, parameters...)
-	command.afterRunCallback = func() error {
-		//	client := serviceclient.GetInstance("acl-service")
-		// TODO acl stuff
+	command.afterRunCallback = func(transaction interface{}) error {
+		client := serviceclient.GetInstance("acl-service")
+		client.Post("/objects", "json", strings.NewReader(value["id"].(uuid.UUID).String()))
 		return nil
 	}
 	return command, nil
 }
 
 //database checked
-func generateRemoveModuleTree(id string, op *jsonpatch.Operation, params map[string]string) (jsonpatch.CommandContainer, error) {
+func generateRemoveModuleTree(id, userId string, op *jsonpatch.Operation, params map[string]string) (jsonpatch.CommandContainer, error) {
 	if op.Type != jsonpatch.REMOVE {
 		return nil, jsonpatch.InvalidPatchError{"Operation not allowed here"}
 	}
 	command := createCommand("SELECT remove_module_tree($1,$2)", id, params["moduleId"])
-	command.afterRunCallback = func() error {
+	command.afterRunCallback = func(transaction interface{}) error {
 		//	client := serviceclient.GetInstance("acl-service")
 		// TODO acl stuff
 		return nil
@@ -42,12 +46,12 @@ func generateRemoveModuleTree(id string, op *jsonpatch.Operation, params map[str
 }
 
 //database checked
-func generateRemoveModule(id string, op *jsonpatch.Operation, params map[string]string) (jsonpatch.CommandContainer, error) {
+func generateRemoveModule(id, userId string, op *jsonpatch.Operation, params map[string]string) (jsonpatch.CommandContainer, error) {
 	if op.Type != jsonpatch.REMOVE {
 		return nil, jsonpatch.InvalidPatchError{"Operation not allowed here"}
 	}
 	command := createCommand("SELECT remove_module($1,$2)", id, params["moduleId"])
-	command.afterRunCallback = func() error {
+	command.afterRunCallback = func(transaction interface{}) error {
 		//	client := serviceclient.GetInstance("acl-service")
 		// TODO acl stuff
 		return nil
@@ -57,7 +61,7 @@ func generateRemoveModule(id string, op *jsonpatch.Operation, params map[string]
 }
 
 //database checked
-func generateMoveModule(id string, op *jsonpatch.Operation, params map[string]string) (jsonpatch.CommandContainer, error) {
+func generateMoveModule(id, userId string, op *jsonpatch.Operation, params map[string]string) (jsonpatch.CommandContainer, error) {
 	if op.Type != jsonpatch.REPLACE {
 		return nil, jsonpatch.InvalidPatchError{"Operation not allowed here"}
 	}
@@ -66,7 +70,7 @@ func generateMoveModule(id string, op *jsonpatch.Operation, params map[string]st
 }
 
 //database checked
-func generateMoveModuleTree(id string, op *jsonpatch.Operation, params map[string]string) (jsonpatch.CommandContainer, error) {
+func generateMoveModuleTree(id, userId string, op *jsonpatch.Operation, params map[string]string) (jsonpatch.CommandContainer, error) {
 	if op.Type != jsonpatch.REPLACE {
 		return nil, jsonpatch.InvalidPatchError{"Operation not allowed here"}
 	}
@@ -75,7 +79,7 @@ func generateMoveModuleTree(id string, op *jsonpatch.Operation, params map[strin
 }
 
 //database checked
-func generateReplaceTopicDescription(id string, op *jsonpatch.Operation, params map[string]string) (jsonpatch.CommandContainer, error) {
+func generateReplaceTopicDescription(id, userId string, op *jsonpatch.Operation, params map[string]string) (jsonpatch.CommandContainer, error) {
 	if op.Type != jsonpatch.REPLACE {
 		return nil, jsonpatch.InvalidPatchError{"Operation not allowed here"}
 	}
@@ -83,12 +87,12 @@ func generateReplaceTopicDescription(id string, op *jsonpatch.Operation, params 
 }
 
 //database checked
-func generateAddAssistant(id string, op *jsonpatch.Operation, params map[string]string) (jsonpatch.CommandContainer, error) {
+func generateAddAssistant(id, userId string, op *jsonpatch.Operation, params map[string]string) (jsonpatch.CommandContainer, error) {
 	if op.Type != jsonpatch.ADD {
 		return nil, jsonpatch.InvalidPatchError{"Operation not allowed here"}
 	}
 	command := createCommand("SELECT add_assistant($1,$2)", id, op.Value)
-	command.afterRunCallback = func() error {
+	command.afterRunCallback = func(transaction interface{}) error {
 		//	client := serviceclient.GetInstance("acl-service")
 		// TODO acl stuff
 		return nil
@@ -98,22 +102,22 @@ func generateAddAssistant(id string, op *jsonpatch.Operation, params map[string]
 }
 
 //databsae checked
-func generateRemoveAssistant(id string, op *jsonpatch.Operation, params map[string]string) (jsonpatch.CommandContainer, error) {
+func generateRemoveAssistant(id, userId string, op *jsonpatch.Operation, params map[string]string) (jsonpatch.CommandContainer, error) {
 	if op.Type != jsonpatch.REMOVE {
 		return nil, jsonpatch.InvalidPatchError{"Operation not allowed here"}
 	}
 	command := createCommand("SELECT remove_assistant($1,$2)", id, params["assistantId"])
-	command.afterRunCallback = func() error {
+	command.afterRunCallback = func(transaction interface{}) error {
 		//	client := serviceclient.GetInstance("acl-service")
 		// TODO acl stuff
 		return nil
 	}
 
 	return command, nil
-
 }
 
-func (c *TopicPatchCompiler) Compile(id string, treePatch *jsonpatch.Patch) (*jsonpatch.CommandList, error) {
+func (c *TopicPatchCompiler) Compile(treePatch *jsonpatch.Patch, options map[string]interface{}) (*jsonpatch.CommandList, error) {
+	id, userId := options["id"].(string), options["userId"].(string)
 	router := urlrouter.Router{
 		Routes: []urlrouter.Route{
 			urlrouter.Route{
@@ -157,7 +161,7 @@ func (c *TopicPatchCompiler) Compile(id string, treePatch *jsonpatch.Patch) (*js
 	if err != nil {
 		return nil, err
 	}
-	err = translatePatch(result, id, &router, treePatch)
+	err = translatePatch(result, id, userId, &router, treePatch)
 	if err != nil {
 		return nil, err
 	}

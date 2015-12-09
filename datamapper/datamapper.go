@@ -63,8 +63,12 @@ func New(config Config) (*DataMapper, error) {
 	err := row.Scan(result)
 	return result, err
 }*/
-func (mapper *DataMapper) ApplyPatch(id string, patch *jsonpatch.Patch, compiler jsonpatch.PatchCompiler) error {
-	commands, err := compiler.Compile(id, patch)
+func (mapper *DataMapper) ApplyPatch(id, userId string, patch *jsonpatch.Patch, compiler jsonpatch.PatchCompiler) error {
+	options := map[string]interface{}{
+		"id":     id,
+		"userId": userId,
+	}
+	commands, err := compiler.Compile(patch, options)
 	if err != nil {
 		return err
 	}

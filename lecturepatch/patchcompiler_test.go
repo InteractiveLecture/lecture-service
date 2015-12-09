@@ -185,7 +185,11 @@ func createTopicPatch() *jsonpatch.Patch {
 func TestModulePatchCompiler(t *testing.T) {
 	patch := createModulePatch()
 	compiler := ForModules()
-	list, err := compiler.Compile("123", patch)
+	options := map[string]interface{}{
+		"id":     "123",
+		"userId": "444",
+	}
+	list, err := compiler.Compile(patch, options)
 
 	assert.Nil(t, err)
 
@@ -209,7 +213,7 @@ func TestModulePatchCompiler(t *testing.T) {
 	assert.Equal(t, "123", list.Commands[4].(*SqlCommandContainer).parameters[0])
 	assert.Equal(t, "111", list.Commands[4].(*SqlCommandContainer).parameters[1])
 
-	assert.Equal(t, "SELECT add_exercise($1,$2,$3,$4,$5)", list.Commands[5].(*SqlCommandContainer).statement)
+	assert.Equal(t, "SELECT add_exercise($1,$2,$3)", list.Commands[5].(*SqlCommandContainer).statement)
 	assert.Equal(t, "333", list.Commands[5].(*SqlCommandContainer).parameters[0])
 	assert.Equal(t, "123", list.Commands[5].(*SqlCommandContainer).parameters[1])
 	assert.Equal(t, "Java", list.Commands[5].(*SqlCommandContainer).parameters[2])
@@ -238,7 +242,12 @@ func TestModulePatchCompiler(t *testing.T) {
 func TestTopicPatchCompiler(t *testing.T) {
 	patch := createTopicPatch()
 	compiler := ForTopics()
-	list, err := compiler.Compile("123", patch)
+	options := map[string]interface{}{
+		"id":     "123",
+		"userId": "444",
+	}
+	list, err := compiler.Compile(patch, options)
+
 	assert.Nil(t, err)
 	assert.NotNil(t, list)
 	assert.Equal(t, "SET TRANSACTION ISOLATION LEVEL SERIALIZABLE", list.Commands[0].(*SqlCommandContainer).statement)
@@ -288,7 +297,12 @@ func TestTopicPatchCompiler(t *testing.T) {
 func TestExercicePatchCompiler(t *testing.T) {
 	patch := createExercisePatch()
 	compiler := ForExercises()
-	list, err := compiler.Compile("123", patch)
+	options := map[string]interface{}{
+		"id":     "123",
+		"userId": "444",
+	}
+	list, err := compiler.Compile(patch, options)
+
 	assert.Nil(t, err)
 	assert.Equal(t, "SET TRANSACTION ISOLATION LEVEL SERIALIZABLE", list.Commands[0].(*SqlCommandContainer).statement)
 	assert.Equal(t, "SELECT check_version($1,$2,$3)", list.Commands[1].(*SqlCommandContainer).statement)
@@ -342,8 +356,8 @@ func TestExercicePatchCompiler(t *testing.T) {
 	assert.Equal(t, 2, list.Commands[9].(*SqlCommandContainer).parameters[2])
 
 	assert.Equal(t, "SELECT replace_task_content($1,$2,$3)", list.Commands[10].(*SqlCommandContainer).statement)
-	assert.Equal(t, "123", list.Commands[10].(*SqlCommandContainer).parameters[1])
-	assert.Equal(t, 1, list.Commands[10].(*SqlCommandContainer).parameters[2])
-	assert.Equal(t, "Dies ist immer noch der erste Task", list.Commands[10].(*SqlCommandContainer).parameters[0])
+	assert.Equal(t, "123", list.Commands[10].(*SqlCommandContainer).parameters[0])
+	assert.Equal(t, 1, list.Commands[10].(*SqlCommandContainer).parameters[1])
+	assert.Equal(t, "Dies ist immer noch der erste Task", list.Commands[10].(*SqlCommandContainer).parameters[2])
 
 }

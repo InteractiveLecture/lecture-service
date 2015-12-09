@@ -80,7 +80,7 @@ func TestAddRemoveAlterHint(t *testing.T) {
 		},
 	}
 	compiler := lecturepatch.ForExercises()
-	err = mapper.ApplyPatch("f7c21557-03fc-3e99-bdff-7b065f58b39d", &p, compiler)
+	err = mapper.ApplyPatch("f7c21557-03fc-3e99-bdff-7b065f58b39d", "f20919fa-08bd-3a8d-9e3c-e3406c680162", &p, compiler)
 	assert.Nil(t, err)
 	ex, err := getExercise(mapper, "f7c21557-03fc-3e99-bdff-7b065f58b39d")
 	assert.Nil(t, err)
@@ -114,7 +114,7 @@ func TestAddRemoveAlterHint(t *testing.T) {
 			},
 		},
 	}
-	err = mapper.ApplyPatch("f7c21557-03fc-3e99-bdff-7b065f58b39d", &p, compiler)
+	err = mapper.ApplyPatch("f7c21557-03fc-3e99-bdff-7b065f58b39d", "f20919fa-08bd-3a8d-9e3c-e3406c680162", &p, compiler)
 	assert.Nil(t, err)
 	ex, err = getExercise(mapper, "f7c21557-03fc-3e99-bdff-7b065f58b39d")
 	hints = getHintIds(ex, 1)
@@ -163,7 +163,7 @@ func TestAddRemoveAlterTask(t *testing.T) {
 		},
 	}
 	compiler := lecturepatch.ForExercises()
-	err = mapper.ApplyPatch("f7c21557-03fc-3e99-bdff-7b065f58b39d", &p, compiler)
+	err = mapper.ApplyPatch("f7c21557-03fc-3e99-bdff-7b065f58b39d", "f20919fa-08bd-3a8d-9e3c-e3406c680162", &p, compiler)
 	assert.Nil(t, err)
 	ex, err := getExercise(mapper, "f7c21557-03fc-3e99-bdff-7b065f58b39d")
 	assert.Nil(t, err)
@@ -189,7 +189,7 @@ func TestAddRemoveAlterTask(t *testing.T) {
 			},
 		},
 	}
-	err = mapper.ApplyPatch("f7c21557-03fc-3e99-bdff-7b065f58b39d", &p, compiler)
+	err = mapper.ApplyPatch("f7c21557-03fc-3e99-bdff-7b065f58b39d", "f20919fa-08bd-3a8d-9e3c-e3406c680162", &p, compiler)
 	assert.Nil(t, err)
 	ex, err = getExercise(mapper, "f7c21557-03fc-3e99-bdff-7b065f58b39d")
 	tasks := ex["tasks"].([]interface{})

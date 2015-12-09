@@ -27,14 +27,14 @@ func (c *SqlCommandContainer) ExecuteMain(transaction interface{}) error {
 
 func (c *SqlCommandContainer) ExecuteAfter(transaction interface{}) error {
 	if c.afterRunCallback != nil {
-		return c.afterRunCallback()
+		return c.afterRunCallback(transaction)
 	}
 	return nil
 }
 
 func (c *SqlCommandContainer) ExecuteBefore(transaction interface{}) error {
 	if c.beforeRunCallback != nil {
-		return c.beforeRunCallback()
+		return c.beforeRunCallback(transaction)
 	}
 	return nil
 }
@@ -66,7 +66,7 @@ func prepare(stmt string, values ...interface{}) (string, []interface{}) {
 	return stmt, parameters
 }
 
-type CommandGenerator func(id string, op *jsonpatch.Operation, params map[string]string) (jsonpatch.CommandContainer, error)
+type CommandGenerator func(id, userId string, op *jsonpatch.Operation, params map[string]string) (jsonpatch.CommandContainer, error)
 
 func NewCommandList() *jsonpatch.CommandList {
 	result := jsonpatch.CommandList{
@@ -79,7 +79,7 @@ func AddCommand(c *jsonpatch.CommandList, command string, values ...interface{})
 	c.Commands = append(c.Commands, createCommand(command, values...))
 }
 
-func translatePatch(c *jsonpatch.CommandList, id string, router *urlrouter.Router, patch *jsonpatch.Patch) error {
+func translatePatch(c *jsonpatch.CommandList, id, userId string, router *urlrouter.Router, patch *jsonpatch.Patch) error {
 	for _, op := range patch.Operations {
 		route, params, err := router.FindRoute(op.Path)
 		if err != nil {
@@ -90,7 +90,7 @@ func translatePatch(c *jsonpatch.CommandList, id string, router *urlrouter.Route
 		}
 		builder := route.Dest.(CommandGenerator)
 
-		command, err := builder(id, &op, params)
+		command, err := builder(id, userId, &op, params)
 		if err != nil {
 			return err
 		}
