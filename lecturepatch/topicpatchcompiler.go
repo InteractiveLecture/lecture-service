@@ -1,12 +1,17 @@
 package lecturepatch
 
 import (
+	"bytes"
+	"database/sql"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/InteractiveLecture/serviceclient"
 	"github.com/ant0ine/go-urlrouter"
 	"github.com/richterrettich/jsonpatch"
-	"github.com/satori/go.uuid"
 )
 
 type TopicPatchCompiler struct{}
@@ -16,108 +21,152 @@ func ForTopics() jsonpatch.PatchCompiler {
 }
 
 //database checked
-func generateAddModule(id, userId string, op *jsonpatch.Operation, params map[string]string) (jsonpatch.CommandContainer, error) {
-	if op.Type != jsonpatch.ADD {
-		return nil, jsonpatch.InvalidPatchError{"Operation not allowed here"}
+func generateAddModule(id, userId string, officers, assistants map[string]bool, op *jsonpatch.Operation, params map[string]string) (*jsonpatch.CommandContainer, error) {
+	if err := checkAuthorityAndValidatePatch(jsonpatch.ADD, op.Type, userId, officers); err != nil {
+		return nil, err
 	}
 	value := op.Value.(map[string]interface{})
-	stmt, parameters := prepare("SELECT add_module(%v)", value["id"], id, value["description"], value["video_id"], value["script_id"], value["parents"])
-	command := createCommand(stmt, parameters...)
-	command.afterRunCallback = func(transaction interface{}) error {
+	command := buildDefaultCommand("SELECT add_module(%v)", value["id"], id, value["description"], value["video_id"], value["script_id"], value["parents"])
+	command.AfterCallback = func(transaction, prev interface{}) (interface{}, error) {
 		client := serviceclient.GetInstance("acl-service")
-		client.Post("/objects", "json", strings.NewReader(value["id"].(uuid.UUID).String()))
-		return nil
+		err := checkStatus(client.Post("/objects", "json", strings.NewReader(value["id"].(string))))
+		if err != nil {
+			return nil, err
+		}
+		assistantsString := ""
+		for _, a := range assistants {
+			assistantsString = assistantsString + "&sid=" + strconv.FormatBool(a)
+		}
+		assistantsString = strings.TrimLeft(assistantsString, "&")
+		permissions, _ := json.Marshal(map[string]bool{"read": true, "create": true, "update": false, "delete": false})
+		return nil, checkStatus(client.Put(fmt.Sprintf("/objects/%s/permissions?%s", value["id"], assistantsString), "application/json", bytes.NewReader(permissions)))
 	}
 	return command, nil
 }
 
 //database checked
-func generateRemoveModuleTree(id, userId string, op *jsonpatch.Operation, params map[string]string) (jsonpatch.CommandContainer, error) {
-	if op.Type != jsonpatch.REMOVE {
-		return nil, jsonpatch.InvalidPatchError{"Operation not allowed here"}
+func generateRemoveModuleTree(id, userId string, officers, assistants map[string]bool, op *jsonpatch.Operation, params map[string]string) (*jsonpatch.CommandContainer, error) {
+	if err := checkAuthorityAndValidatePatch(jsonpatch.REMOVE, op.Type, userId, officers); err != nil {
+		return nil, err
 	}
-	command := createCommand("SELECT remove_module_tree($1,$2)", id, params["moduleId"])
-	command.afterRunCallback = func(transaction interface{}) error {
-		//	client := serviceclient.GetInstance("acl-service")
-		// TODO acl stuff
-		return nil
+	command := new(jsonpatch.CommandContainer)
+	command.MainCallback = func(transaction, prev interface{}) (interface{}, error) {
+		row := transaction.(*sql.Tx).QueryRow("SELECT string_agg(id,'&oid=') from remove_module_tree($1,$2) group by id", id, params["moduleId"])
+		var val string
+		err := row.Scan(&val)
+		if err != nil {
+			return nil, err
+		}
+		return val, nil
+	}
+	command.AfterCallback = func(transaction, prev interface{}) (interface{}, error) {
+		client := serviceclient.GetInstance("acl-service")
+		return nil, checkStatus(client.Delete(fmt.Sprintf("/objects?oid=%s", prev.(string))))
 	}
 	return command, nil
 }
 
 //database checked
-func generateRemoveModule(id, userId string, op *jsonpatch.Operation, params map[string]string) (jsonpatch.CommandContainer, error) {
-	if op.Type != jsonpatch.REMOVE {
-		return nil, jsonpatch.InvalidPatchError{"Operation not allowed here"}
+func generateRemoveModule(id, userId string, officers, assistants map[string]bool, op *jsonpatch.Operation, params map[string]string) (*jsonpatch.CommandContainer, error) {
+	if err := checkAuthorityAndValidatePatch(jsonpatch.REMOVE, op.Type, userId, officers); err != nil {
+		return nil, err
 	}
-	command := createCommand("SELECT remove_module($1,$2)", id, params["moduleId"])
-	command.afterRunCallback = func(transaction interface{}) error {
-		//	client := serviceclient.GetInstance("acl-service")
-		// TODO acl stuff
-		return nil
+	command := buildDefaultCommand("SELECT remove_module(%v)", id, params["moduleId"])
+	command.AfterCallback = func(transaction, prev interface{}) (interface{}, error) {
+		client := serviceclient.GetInstance("acl-service")
+		return nil, checkStatus(client.Delete(fmt.Sprintf("/objects/%s", params["moduleId"])))
 	}
-
 	return command, nil
 }
 
 //database checked
-func generateMoveModule(id, userId string, op *jsonpatch.Operation, params map[string]string) (jsonpatch.CommandContainer, error) {
-	if op.Type != jsonpatch.REPLACE {
-		return nil, jsonpatch.InvalidPatchError{"Operation not allowed here"}
+func generateMoveModule(id, userId string, officers, assistants map[string]bool, op *jsonpatch.Operation, params map[string]string) (*jsonpatch.CommandContainer, error) {
+	if err := checkAuthorityAndValidatePatch(jsonpatch.REPLACE, op.Type, userId, officers); err != nil {
+		return nil, err
 	}
-	stmt, parameters := prepare("SELECT move_module(%v)", id, params["moduleId"], op.Value)
-	return createCommand(stmt, parameters...), nil
+	return buildDefaultCommand("SELECT move_module(%v)", id, params["moduleId"], op.Value), nil
 }
 
 //database checked
-func generateMoveModuleTree(id, userId string, op *jsonpatch.Operation, params map[string]string) (jsonpatch.CommandContainer, error) {
-	if op.Type != jsonpatch.REPLACE {
-		return nil, jsonpatch.InvalidPatchError{"Operation not allowed here"}
+func generateMoveModuleTree(id, userId string, officers, assistants map[string]bool, op *jsonpatch.Operation, params map[string]string) (*jsonpatch.CommandContainer, error) {
+	if err := checkAuthorityAndValidatePatch(jsonpatch.REPLACE, op.Type, userId, officers); err != nil {
+		return nil, err
 	}
-	stmt, parameters := prepare("SELECT move_module_tree(%v)", id, params["moduleId"], op.Value)
-	return createCommand(stmt, parameters...), nil
+	command := buildDefaultCommand("SELECT move_module_tree(%v)", id, params["moduleId"], op.Value)
+	return command, nil
 }
 
 //database checked
-func generateReplaceTopicDescription(id, userId string, op *jsonpatch.Operation, params map[string]string) (jsonpatch.CommandContainer, error) {
-	if op.Type != jsonpatch.REPLACE {
-		return nil, jsonpatch.InvalidPatchError{"Operation not allowed here"}
+func generateReplaceTopicDescription(id, userId string, officers, assistants map[string]bool, op *jsonpatch.Operation, params map[string]string) (*jsonpatch.CommandContainer, error) {
+	if err := checkAuthorityAndValidatePatch(jsonpatch.REPLACE, op.Type, userId, officers); err != nil {
+		return nil, err
 	}
-	return createCommand("SELECT replace_topic_description($1,$2)", id, op.Value), nil
+	return buildDefaultCommand("SELECT replace_topic_description(%v)", id, op.Value), nil
 }
 
 //database checked
-func generateAddAssistant(id, userId string, op *jsonpatch.Operation, params map[string]string) (jsonpatch.CommandContainer, error) {
-	if op.Type != jsonpatch.ADD {
-		return nil, jsonpatch.InvalidPatchError{"Operation not allowed here"}
+func generateAddAssistant(id, userId string, officers, assistants map[string]bool, op *jsonpatch.Operation, params map[string]string) (*jsonpatch.CommandContainer, error) {
+	if err := checkAuthorityAndValidatePatch(jsonpatch.ADD, op.Type, userId, officers); err != nil {
+		return nil, err
 	}
-	command := createCommand("SELECT add_assistant($1,$2)", id, op.Value)
-	command.afterRunCallback = func(transaction interface{}) error {
-		//	client := serviceclient.GetInstance("acl-service")
-		// TODO acl stuff
+	command := buildDefaultCommand("SELECT add_assistant(%v)", id, op.Value)
+	command.AfterCallback = func(transaction, prev interface{}) (interface{}, error) {
+		return nil, setPermissions(id, userId, transaction.(*sql.Tx), map[string]bool{
+			"read":   true,
+			"create": true,
+			"delete": false,
+			"update": false,
+		})
+	}
+	return command, nil
+}
+
+func setPermissions(topicId, userId string, txn *sql.Tx, permissions map[string]bool) error {
+	stmt := `SELECT string_agg(id, '&oid=') from modules where topic_id = $1 GROUP BY id`
+	row := txn.QueryRow(stmt, topicId)
+	oids := ""
+	err := row.Scan(&oids)
+	if err != nil {
 		return nil
 	}
-
-	return command, nil
+	oids = "oid=" + oids
+	client := serviceclient.GetInstance("acl-service")
+	//TODO post multiple sids in acl einfügen endpiont in acl-service einfügen
+	newPermissions, _ := json.Marshal(permissions)
+	resp, err := client.Put(fmt.Sprintf("/sids/%s/permissions?%s", userId, oids), "application/json", bytes.NewReader(newPermissions))
+	if err != nil {
+		return err
+	}
+	if resp.StatusCode >= 300 {
+		return errors.New("acl-service returned a not successfull statuscode while setting permissions for new assistant.")
+	}
+	return nil
 }
 
 //databsae checked
-func generateRemoveAssistant(id, userId string, op *jsonpatch.Operation, params map[string]string) (jsonpatch.CommandContainer, error) {
-	if op.Type != jsonpatch.REMOVE {
-		return nil, jsonpatch.InvalidPatchError{"Operation not allowed here"}
+func generateRemoveAssistant(id, userId string, officers, assistants map[string]bool, op *jsonpatch.Operation, params map[string]string) (*jsonpatch.CommandContainer, error) {
+	if err := checkAuthorityAndValidatePatch(jsonpatch.REMOVE, op.Type, userId, officers); err != nil {
+		return nil, err
 	}
-	command := createCommand("SELECT remove_assistant($1,$2)", id, params["assistantId"])
-	command.afterRunCallback = func(transaction interface{}) error {
-		//	client := serviceclient.GetInstance("acl-service")
-		// TODO acl stuff
-		return nil
+	command := buildDefaultCommand("SELECT remove_assistant(%v)", id, params["assistantId"])
+	command.AfterCallback = func(transaction, prev interface{}) (interface{}, error) {
+		return nil, setPermissions(id, userId, transaction.(*sql.Tx), map[string]bool{
+			"read":   false,
+			"create": false,
+			"update": false,
+			"delete": false,
+		})
 	}
-
 	return command, nil
 }
 
 func (c *TopicPatchCompiler) Compile(treePatch *jsonpatch.Patch, options map[string]interface{}) (*jsonpatch.CommandList, error) {
 	id, userId := options["id"].(string), options["userId"].(string)
+	db := options["db"].(*sql.DB)
+	officers, assistants, err := getTopicAuthority(id, db)
+	if err != nil {
+		return nil, err
+	}
 	router := urlrouter.Router{
 		Routes: []urlrouter.Route{
 			urlrouter.Route{
@@ -155,17 +204,18 @@ func (c *TopicPatchCompiler) Compile(treePatch *jsonpatch.Patch, options map[str
 		},
 	}
 	result := NewCommandList()
-	AddCommand(result, `SET TRANSACTION ISOLATION LEVEL SERIALIZABLE`)
-	AddCommand(result, `SELECT check_version($1,$2,$3)`, id, "topics", treePatch.Version)
-	err := router.Start()
+	result.AddCommands(
+		buildDefaultCommand(`SET TRANSACTION ISOLATION LEVEL SERIALIZABLE`),
+		buildDefaultCommand("SELECT check_version(%v)", id, "topics", treePatch.Version),
+	)
+	err = router.Start()
 	if err != nil {
 		return nil, err
 	}
-	err = translatePatch(result, id, userId, &router, treePatch)
+	err = translatePatch(result, id, userId, officers, assistants, &router, treePatch)
 	if err != nil {
 		return nil, err
 	}
-	AddCommand(result, `SELECT increment_version($1,$2)`, id, "topics")
-	//	AddCommand(result, `REFRESH MATERIALIZED VIEW module_trees`)
+	result.AddCommands(buildDefaultCommand("SELECT increment_version(%v)", id, "topics"))
 	return result, nil
 }

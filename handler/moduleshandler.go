@@ -7,6 +7,8 @@ import (
 	"net/http"
 
 	"github.com/InteractiveLecture/id-extractor"
+	"github.com/dgrijalva/jwt-go"
+	"github.com/gorilla/context"
 	"github.com/richterrettich/jsonpatch"
 	"github.com/richterrettich/lecture-service/datamapper"
 	"github.com/richterrettich/lecture-service/lecturepatch"
@@ -71,8 +73,9 @@ func ModulesPatchHandler(mapper *datamapper.DataMapper, extractor idextractor.Ex
 		if err != nil {
 			return http.StatusBadRequest
 		}
+		userId := context.Get(r, "user").(*jwt.Token).Claims["id"].(string)
 		compiler := lecturepatch.ForModules()
-		err = mapper.ApplyPatch(id, patch, compiler)
+		err = mapper.ApplyPatch(id, userId, patch, compiler)
 		if err != nil {
 			return http.StatusBadRequest
 		}

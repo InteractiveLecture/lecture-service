@@ -21,6 +21,7 @@ drop table if exists module_progress_histories cascade;
 drop table if exists module_parents cascade;
 drop table if exists module_recommendations cascade;
 drop table if exists progress_state cascade;
+drop table if exists task_completed_histories cascade;
 
 create table topics (
   id UUID PRIMARY KEY,
@@ -112,6 +113,13 @@ create table exercise_progress_histories (
   time timestamp,
   state int references progress_state(id),
   PRIMARY KEY (user_id,exercise_id,state)
+);
+
+create table task_completed_histories(
+  user_id UUID,
+  task_id UUID references tasks(id) on delete cascade,
+  time timestamp,
+  PRIMARY KEY (user_id,task_id)
 );
 
 create table module_recommendations (

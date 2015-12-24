@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
 	"flag"
 	"log"
 	"net/http"
@@ -13,7 +15,6 @@ import (
 )
 
 func main() {
-
 	dbHost := flag.String("dbhost", "localhost", "the database host")
 	dbPort := flag.Int("dbport", 5432, "the database port")
 	dbUser := flag.String("dbuser", "lectureapp", "the database user")
@@ -73,7 +74,7 @@ func main() {
 
 	//EXERCISES
 	r.Path("/exercises/{id}").
-		Methods("POST").
+		Methods("PATCH").
 		Handler(handler.CompleteExerciseHandler(mapper, extractor))
 	r.Path("/hints/{id}").
 		Methods("GET").
@@ -125,6 +126,18 @@ func main() {
 			}
 		}()
 	})
+	nc.Subscribe("finish-task", func(m *nats.Msg) {
+		go func() {
+			data := make(map[string]interface{})
+			json.NewDecoder(bytes.NewReader(m.Data)).Decode(&data)
+			log.Printf("user %s finished task %s", data["userId"], data["taskId"])
+			err = mapper.CompleteTask(data["taskId"].(string), data["userId"].(string))
+			if err != nil {
+				log.Println("error while completing task: ", err)
+			}
+		}()
+	})
+
 	log.Println("listening on port 8080")
 	log.Fatal(http.ListenAndServe(":8080", r))
 }

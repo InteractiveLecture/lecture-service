@@ -10,7 +10,9 @@ import (
 	"github.com/InteractiveLecture/id-extractor"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gorilla/context"
+	"github.com/richterrettich/jsonpatch"
 	"github.com/richterrettich/lecture-service/datamapper"
+	"github.com/richterrettich/lecture-service/lecturepatch"
 )
 
 func GetHintHandler(mapper *datamapper.DataMapper, extractor idextractor.Extractor) http.Handler {
@@ -77,6 +79,27 @@ func CompleteExerciseHandler(mapper *datamapper.DataMapper, extractor idextracto
 		err = mapper.CompleteExercise(id, userId)
 		if err != nil {
 			return http.StatusInternalServerError
+		}
+		return -1
+	}
+	return createHandler(handlerFunc)
+}
+
+func ExercisePatchHandler(mapper *datamapper.DataMapper, extractor idextractor.Extractor) http.Handler {
+	handlerFunc := func(w http.ResponseWriter, r *http.Request) int {
+		id, err := extractor(r)
+		if err != nil {
+			return http.StatusInternalServerError
+		}
+		patch, err := jsonpatch.Decode(r.Body)
+		if err != nil {
+			return http.StatusBadRequest
+		}
+		userId := context.Get(r, "user").(*jwt.Token).Claims["id"].(string)
+		compiler := lecturepatch.ForExercises()
+		err = mapper.ApplyPatch(id, userId, patch, compiler)
+		if err != nil {
+			return http.StatusBadRequest
 		}
 		return -1
 	}

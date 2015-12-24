@@ -10,6 +10,11 @@ func (r *DataMapper) CompleteExercise(exerciseId, userId string) error {
 	return err
 }
 
+func (r *DataMapper) CompleteTask(taskId, userId string) error {
+	_, err := r.db.Exec(`SELECT complete_task($1,$2)`, taskId, userId)
+	return err
+}
+
 func (r *DataMapper) GetHint(hintId, userId string) ([]byte, error) {
 	result, err := r.queryIntoBytes(`SELECT get_hint($1,$2)`, userId, hintId)
 	switch {

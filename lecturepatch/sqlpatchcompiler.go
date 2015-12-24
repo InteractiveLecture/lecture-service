@@ -2,84 +2,88 @@ package lecturepatch
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
-	"log"
-	"reflect"
-	"strings"
+	"net/http"
 
+	"github.com/InteractiveLecture/pgmapper/pgutil"
 	"github.com/ant0ine/go-urlrouter"
 	"github.com/richterrettich/jsonpatch"
 )
 
-type SqlCommandContainer struct {
-	statement         string
-	parameters        []interface{}
-	beforeRunCallback jsonpatch.ContainerCallback
-	afterRunCallback  jsonpatch.ContainerCallback
-}
+var PermissionDeniedError = errors.New("Permission Denied")
 
-func (c *SqlCommandContainer) ExecuteMain(transaction interface{}) error {
-	tx := transaction.(*sql.Tx)
-	log.Println("executing command: ", c.statement)
-	_, err := tx.Exec(c.statement, c.parameters...)
-	return err
-}
+type CommandGenerator func(id, userId string, officers, assistants map[string]bool, op *jsonpatch.Operation, params map[string]string) (*jsonpatch.CommandContainer, error)
 
-func (c *SqlCommandContainer) ExecuteAfter(transaction interface{}) error {
-	if c.afterRunCallback != nil {
-		return c.afterRunCallback(transaction)
+func getTopicAuthority(id string, db *sql.DB) (map[string]bool, map[string]bool, error) {
+	stmt := `SELECT user_id,kind from topic_authority where topic_id = $1`
+	rows, err := db.Query(stmt, id)
+	if err != nil {
+		return nil, nil, err
 	}
-	return nil
+	return extractAuthority(rows)
 }
 
-func (c *SqlCommandContainer) ExecuteBefore(transaction interface{}) error {
-	if c.beforeRunCallback != nil {
-		return c.beforeRunCallback(transaction)
+func getModuleAuthority(id string, db *sql.DB) (map[string]bool, map[string]bool, error) {
+	stmt := `SELECT ta.user_id,ta.kind 
+					 FROM topic_authority ta  
+					 INNER JOIN topics t on t.id = ta.topic_id 
+					 INNER JOIN modules m on m.topic_id = t.id where m.id = $1`
+	rows, err := db.Query(stmt, id)
+	if err != nil {
+		return nil, nil, err
 	}
-	return nil
+	return extractAuthority(rows)
 }
 
-func createCommand(c string, parameters ...interface{}) *SqlCommandContainer {
-	return &SqlCommandContainer{c, parameters, nil, nil}
+func getExerciseAuthority(id string, db *sql.DB) (map[string]bool, map[string]bool, error) {
+	stmt := `SELECT ta.user_id,ta.kind 
+					 FROM topic_authority ta  
+					 INNER JOIN topics t on t.id = ta.topic_id 
+					 INNER JOIN modules m on m.topic_id = t.id 
+					 INNER JOIN exercises e on e.module_id = m.id where e.id = $1`
+	rows, err := db.Query(stmt, id)
+	if err != nil {
+		return nil, nil, err
+	}
+	return extractAuthority(rows)
 }
 
-func prepare(stmt string, values ...interface{}) (string, []interface{}) {
-	parametersString := ""
-	var parameters = make([]interface{}, 0)
-	currentIndex := 1
-	for _, v := range values {
-		val := reflect.ValueOf(v)
-		if val.Kind() == reflect.Slice {
-			for i := 0; i < val.Len(); i++ {
-				inval := val.Index(i)
-				parameters = append(parameters, inval.Interface())
-				parametersString = fmt.Sprintf("%s,$%d", parametersString, currentIndex)
-				currentIndex = currentIndex + 1
-			}
-		} else {
-			parameters = append(parameters, v)
-			parametersString = fmt.Sprintf("%s,$%d", parametersString, currentIndex)
-			currentIndex = currentIndex + 1
+func extractAuthority(rows *sql.Rows) (map[string]bool, map[string]bool, error) {
+	record := make(map[string]interface{})
+	officers := make(map[string]bool)
+	assistants := make(map[string]bool)
+	err := rows.Err()
+	if err != nil {
+		return nil, nil, err
+	}
+	for rows.Next() {
+		err := rows.Scan(&record)
+		if err != nil {
+			return nil, nil, err
+		}
+		if record["kind"].(string) == "ASSISTANT" {
+			assistants[record["user_id"].(string)] = true
+		}
+		if record["kind"].(string) == "OFFICER" {
+			officers[record["user_id"].(string)] = true
 		}
 	}
-	stmt = fmt.Sprintf(stmt, strings.Trim(parametersString, ","))
-	return stmt, parameters
+	return officers, assistants, nil
 }
-
-type CommandGenerator func(id, userId string, op *jsonpatch.Operation, params map[string]string) (jsonpatch.CommandContainer, error)
 
 func NewCommandList() *jsonpatch.CommandList {
 	result := jsonpatch.CommandList{
-		Commands: make([]jsonpatch.CommandContainer, 0),
+		Commands: make([]*jsonpatch.CommandContainer, 0),
 	}
 	return &result
 }
 
-func AddCommand(c *jsonpatch.CommandList, command string, values ...interface{}) {
+/*func AddCommand(c *jsonpatch.CommandList, command string, values ...interface{}) {
 	c.Commands = append(c.Commands, createCommand(command, values...))
-}
+}*/
 
-func translatePatch(c *jsonpatch.CommandList, id, userId string, router *urlrouter.Router, patch *jsonpatch.Patch) error {
+func translatePatch(c *jsonpatch.CommandList, id, userId string, officers, assistants map[string]bool, router *urlrouter.Router, patch *jsonpatch.Patch) error {
 	for _, op := range patch.Operations {
 		route, params, err := router.FindRoute(op.Path)
 		if err != nil {
@@ -90,11 +94,58 @@ func translatePatch(c *jsonpatch.CommandList, id, userId string, router *urlrout
 		}
 		builder := route.Dest.(CommandGenerator)
 
-		command, err := builder(id, userId, &op, params)
+		command, err := builder(id, userId, officers, assistants, &op, params)
 		if err != nil {
 			return err
 		}
 		c.Commands = append(c.Commands, command)
+	}
+	return nil
+}
+
+func buildDefaultMainCallback(stmt string, params ...interface{}) jsonpatch.ContainerCallback {
+	return func(transaction, prev interface{}) (interface{}, error) {
+		_, err := transaction.(*sql.Tx).Exec(pgutil.Prepare(stmt, params...))
+		if err != nil {
+			return nil, err
+		}
+		return nil, nil
+	}
+}
+
+func buildDefaultCommand(stmt string, params ...interface{}) *jsonpatch.CommandContainer {
+	command := new(jsonpatch.CommandContainer)
+	command.MainCallback = buildDefaultMainCallback(stmt, params...)
+	return command
+}
+
+func checkAuthority(id string, authorities ...map[string]bool) error {
+	found := false
+	for _, a := range authorities {
+		if a[id] {
+			found = true
+			break
+		}
+	}
+	if !found {
+		return PermissionDeniedError
+	}
+	return nil
+}
+
+func checkAuthorityAndValidatePatch(assumedOperation, realOperation jsonpatch.OperationType, id string, authorities ...map[string]bool) error {
+	if assumedOperation != realOperation {
+		return jsonpatch.InvalidPatchError{"Operation not allowed here"}
+	}
+	return checkAuthority(id, authorities...)
+}
+
+func checkStatus(resp *http.Response, err error) error {
+	if err != nil {
+		return err
+	}
+	if resp.StatusCode >= 300 {
+		return fmt.Errorf("There was an error while calling a different service. It returened: %d", resp.StatusCode)
 	}
 	return nil
 }

@@ -74,25 +74,28 @@ func (mapper *DataMapper) ApplyPatch(id, userId string, patch *jsonpatch.Patch, 
 	}
 
 	tx, err := mapper.db.Begin()
+	results := make([]interface{}, 0)
 	log.Println("executing before functions...")
 	for _, com := range commands.Commands {
-		err = com.ExecuteBefore(tx)
+		res, err := com.ExecuteBefore(tx)
 		if err != nil {
 			tx.Rollback()
 			return err
 		}
+		results = append(results, res)
 	}
 	log.Println("executing main functions")
-	for _, com := range commands.Commands {
-		err = com.ExecuteMain(tx)
+	for i, com := range commands.Commands {
+		res, err := com.ExecuteMain(tx, results[i])
 		if err != nil {
 			tx.Rollback()
 			return err
 		}
+		results[i] = res
 	}
 	log.Println("executing after functions")
 	for _, com := range commands.Commands {
-		err = com.ExecuteAfter(tx)
+		res, err := com.ExecuteAfter(tx, res[i])
 		if err != nil {
 			tx.Rollback()
 			return err
