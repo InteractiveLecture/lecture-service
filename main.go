@@ -8,9 +8,9 @@ import (
 	"net/http"
 
 	"github.com/InteractiveLecture/id-extractor"
+	"github.com/InteractiveLecture/pgmapper"
 	"github.com/gorilla/mux"
 	"github.com/nats-io/nats"
-	"github.com/richterrettich/lecture-service/datamapper"
 	"github.com/richterrettich/lecture-service/handler"
 )
 
@@ -24,7 +24,7 @@ func main() {
 	natsHost := flag.String("natshost", "nats", "host of nats")
 	natsPort := flag.String("natsport", "4222", "port of nats")
 	flag.Parse()
-	config := datamapper.DefaultConfig()
+	config := pgmapper.DefaultConfig()
 	config.Host = *dbHost
 	config.Port = *dbPort
 	config.User = *dbUser
@@ -32,7 +32,7 @@ func main() {
 	config.Database = *dbName
 	config.Password = *dbPassword
 
-	mapper, err := datamapper.New(config)
+	mapper, err := pgmapper.New(config)
 	if err != nil {
 		panic(err)
 	}
@@ -73,9 +73,6 @@ func main() {
 		Handler(handler.ModulesPatchHandler(mapper, extractor))
 
 	//EXERCISES
-	r.Path("/exercises/{id}").
-		Methods("PATCH").
-		Handler(handler.CompleteExerciseHandler(mapper, extractor))
 	r.Path("/hints/{id}").
 		Methods("GET").
 		Handler(handler.GetHintHandler(mapper, extractor))
@@ -111,7 +108,7 @@ func main() {
 	nc.Subscribe("authentication-service.user-created", func(m *nats.Msg) {
 		go func() {
 			log.Println("got user with id ", string(m.Data))
-			err = mapper.InsertUser(string(m.Data))
+			err = mapper.Execute("SELECT add_user(%v)", string(m.Data))
 			if err != nil {
 				log.Println(err)
 			}
@@ -120,7 +117,7 @@ func main() {
 	nc.Subscribe("authentication-service.user-deleted", func(m *nats.Msg) {
 		go func() {
 			log.Println("delete user with id ", string(m.Data))
-			err = mapper.RemoveUser(string(m.Data))
+			err = mapper.Execute("SELECT remove_user(%v)", string(m.Data))
 			if err != nil {
 				log.Println(err)
 			}
@@ -131,7 +128,7 @@ func main() {
 			data := make(map[string]interface{})
 			json.NewDecoder(bytes.NewReader(m.Data)).Decode(&data)
 			log.Printf("user %s finished task %s", data["userId"], data["taskId"])
-			err = mapper.CompleteTask(data["taskId"].(string), data["userId"].(string))
+			err = mapper.Execute("SELECT complete_task(%v)", data["taskId"].(string), data["userId"].(string))
 			if err != nil {
 				log.Println("error while completing task: ", err)
 			}

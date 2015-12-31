@@ -144,7 +144,7 @@ func generateAddExercise(id, userId string, officers, assistants map[string]bool
 	value := op.Value.(map[string]interface{})
 	command := buildDefaultCommand("SELECT add_exercise(%v)", value["id"], id, value["backend"])
 	command.AfterCallback = func(transaction, prev interface{}) (interface{}, error) {
-		return nil, checkStatus(serviceclient.GetInstance("acl-service").Post("/objects", "json", strings.NewReader(value["id"].(string))))
+		return nil, checkStatus(serviceclient.New("acl-service").Post("/objects", "json", strings.NewReader(value["id"].(string))))
 	}
 	return command, nil
 }
@@ -156,7 +156,7 @@ func generateRemoveExercise(id, userId string, officers, assistants map[string]b
 	}
 	command := buildDefaultCommand("SELECT remove_exercise(%v)", id, params["exerciseId"])
 	command.AfterCallback = func(transaction, prev interface{}) (interface{}, error) {
-		return nil, checkStatus(serviceclient.GetInstance("acl-service").Delete("/objects/" + params["exerciseId"]))
+		return nil, checkStatus(serviceclient.New("acl-service").Delete("/objects/" + params["exerciseId"]))
 	}
 	return command, nil
 }

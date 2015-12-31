@@ -2,33 +2,33 @@ package handler
 
 import (
 	"bytes"
-	"encoding/json"
 	"io"
 	"log"
 	"net/http"
 
+	"encoding/binary"
+
 	"github.com/InteractiveLecture/id-extractor"
+	"github.com/InteractiveLecture/pgmapper"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gorilla/context"
 	"github.com/richterrettich/jsonpatch"
-	"github.com/richterrettich/lecture-service/datamapper"
 	"github.com/richterrettich/lecture-service/lecturepatch"
 )
 
-func GetHintHandler(mapper *datamapper.DataMapper, extractor idextractor.Extractor) http.Handler {
+func GetHintHandler(mapper *pgmapper.Mapper, extractor idextractor.Extractor) http.Handler {
 	handlerFunc := func(w http.ResponseWriter, r *http.Request) int {
 		id, err := extractor(r)
 		if err != nil {
 			return http.StatusBadRequest
 		}
 		userId := context.Get(r, "user").(*jwt.Token).Claims["id"].(string)
-		result, err := mapper.GetHint(id, userId)
-		if _, ok := err.(datamapper.PaymentRequiredError); ok {
-			return http.StatusPaymentRequired
-		}
-		if err != nil {
-			log.Println("Error while processing hint ", err)
+		result, err := mapper.PreparedQueryIntoBytes("SELECT get_hint(%v)", userId, id)
+		switch {
+		case err != nil:
 			return http.StatusInternalServerError
+		case len(result) == 0:
+			return http.StatusPaymentRequired
 		}
 		reader := bytes.NewReader(result)
 		_, err = io.Copy(w, reader)
@@ -40,31 +40,32 @@ func GetHintHandler(mapper *datamapper.DataMapper, extractor idextractor.Extract
 	return createHandler(handlerFunc)
 }
 
-func PurchaseHintHandler(mapper *datamapper.DataMapper, extractor idextractor.Extractor) http.Handler {
+func PurchaseHintHandler(mapper *pgmapper.Mapper, extractor idextractor.Extractor) http.Handler {
 	handlerFunc := func(w http.ResponseWriter, r *http.Request) int {
 		id, err := extractor(r)
 		if err != nil {
 			return http.StatusBadRequest
 		}
 		userId := context.Get(r, "user").(*jwt.Token).Claims["id"].(string)
-		err = mapper.PurchaseHint(id, userId)
-		if _, ok := err.(datamapper.HintNotFoundError); ok {
-			return http.StatusNotFound
-		}
-		if _, ok := err.(datamapper.InsufficientPointsError); ok {
+		result, err := mapper.PreparedQueryIntoBytes("SELECT purchase_hint(%v)", id, userId)
+		purchaseResult, _ := binary.Varint(result) //TODO check function...something is fishy
+		switch {
+		case purchaseResult == 0:
+			return -1
+		case purchaseResult == 1:
 			return 420
-		}
-		if _, ok := err.(datamapper.AlreadyPurchasedError); ok {
+		case purchaseResult == 2:
 			return http.StatusConflict
-		}
-		if err != nil {
+		case purchaseResult == 3:
+			return http.StatusNotFound
+		default:
 			return http.StatusInternalServerError
 		}
-		return -1
 	}
 	return createHandler(handlerFunc)
 }
 
+/*
 func CompleteExerciseHandler(mapper *datamapper.DataMapper, extractor idextractor.Extractor) http.Handler {
 	handlerFunc := func(w http.ResponseWriter, r *http.Request) int {
 		id, err := extractor(r)
@@ -83,9 +84,9 @@ func CompleteExerciseHandler(mapper *datamapper.DataMapper, extractor idextracto
 		return -1
 	}
 	return createHandler(handlerFunc)
-}
+}*/
 
-func ExercisePatchHandler(mapper *datamapper.DataMapper, extractor idextractor.Extractor) http.Handler {
+func ExercisePatchHandler(mapper *pgmapper.Mapper, extractor idextractor.Extractor) http.Handler {
 	handlerFunc := func(w http.ResponseWriter, r *http.Request) int {
 		id, err := extractor(r)
 		if err != nil {

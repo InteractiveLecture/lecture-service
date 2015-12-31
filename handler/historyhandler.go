@@ -6,15 +6,16 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/InteractiveLecture/id-extractor"
-	"github.com/richterrettich/lecture-service/datamapper"
+	"github.com/InteractiveLecture/pgmapper"
 	"github.com/richterrettich/lecture-service/paginator"
 )
 
-func HintHistoryHandler(mapper *datamapper.DataMapper, extractor idextractor.Extractor) http.Handler {
+func HintHistoryHandler(mapper *pgmapper.Mapper, extractor idextractor.Extractor) http.Handler {
 	handlerFunc := func(w http.ResponseWriter, r *http.Request) int {
-		pageRequest, err := paginator.ParsePages(r.URL)
+		pr, err := paginator.ParsePages(r.URL)
 		if err != nil {
 			return http.StatusInternalServerError
 		}
@@ -22,12 +23,13 @@ func HintHistoryHandler(mapper *datamapper.DataMapper, extractor idextractor.Ext
 		if err != nil {
 			return http.StatusInternalServerError
 		}
-		exerciseId := ""
+		var result []byte
 		ids, ok := r.URL.Query()["exercise_id"]
 		if ok {
-			exerciseId = ids[0]
+			result, err = mapper.PreparedQueryIntoBytes("SELECT get_hint_purchase_history(%v)", id, pr.Size, pr.Size*pr.Number, ids[0])
+		} else {
+			result, err = mapper.PreparedQueryIntoBytes("SELECT get_hint_purchase_history(%v)", id, pr.Size, pr.Size*pr.Number)
 		}
-		result, err := mapper.GetHintHistory(id, pageRequest, exerciseId)
 		if err != nil {
 			log.Println(err)
 			return http.StatusNotFound
@@ -42,9 +44,9 @@ func HintHistoryHandler(mapper *datamapper.DataMapper, extractor idextractor.Ext
 	return createHandler(handlerFunc)
 }
 
-func ModuleHistoryHandler(mapper *datamapper.DataMapper, extractor idextractor.Extractor) http.Handler {
+func ModuleHistoryHandler(mapper *pgmapper.Mapper, extractor idextractor.Extractor) http.Handler {
 	handlerFunc := func(w http.ResponseWriter, r *http.Request) int {
-		pageRequest, err := paginator.ParsePages(r.URL)
+		pr, err := paginator.ParsePages(r.URL)
 		if err != nil {
 			return http.StatusInternalServerError
 		}
@@ -52,12 +54,18 @@ func ModuleHistoryHandler(mapper *datamapper.DataMapper, extractor idextractor.E
 		if err != nil {
 			return http.StatusInternalServerError
 		}
-		topicId := ""
+		var result []byte
+		limit := pr.Size
+		skip := pr.Size * pr.Number
+		if pr.Number == -1 || pr.Size == -1 {
+			skip = -1
+		}
 		ids, ok := r.URL.Query()["topic_id"]
 		if ok {
-			topicId = ids[0]
+			result, err = mapper.PreparedQueryIntoBytes("SELECT get_module_history(%v)", id, limit, skip, ids[0])
+		} else {
+			result, err = mapper.PreparedQueryIntoBytes("SELECT get_module_history(%v)", id, limit, skip)
 		}
-		result, err := mapper.GetModuleHistory(id, pageRequest, topicId)
 		if err != nil {
 			return http.StatusNotFound
 		}
@@ -71,9 +79,9 @@ func ModuleHistoryHandler(mapper *datamapper.DataMapper, extractor idextractor.E
 	return createHandler(handlerFunc)
 }
 
-func ExerciseHistoryHandler(mapper *datamapper.DataMapper, extractor idextractor.Extractor) http.Handler {
+func ExerciseHistoryHandler(mapper *pgmapper.Mapper, extractor idextractor.Extractor) http.Handler {
 	handlerFunc := func(w http.ResponseWriter, r *http.Request) int {
-		pageRequest, err := paginator.ParsePages(r.URL)
+		pr, err := paginator.ParsePages(r.URL)
 		if err != nil {
 			return http.StatusInternalServerError
 		}
@@ -81,12 +89,17 @@ func ExerciseHistoryHandler(mapper *datamapper.DataMapper, extractor idextractor
 		if err != nil {
 			return http.StatusInternalServerError
 		}
-		moduleId := ""
-		ids, ok := r.URL.Query()["module_id"]
-		if ok {
-			moduleId = ids[0]
+		limit := pr.Size
+		skip := pr.Size * pr.Number
+		if pr.Number == -1 || pr.Size == -1 {
+			skip = -1
 		}
-		result, err := mapper.GetExerciseHistory(id, pageRequest, moduleId)
+		var result []byte
+		if ids, ok := r.URL.Query()["module_id"]; ok {
+			result, err = mapper.PreparedQueryIntoBytes("SELECT get_exercise_history(%v)", id, limit, skip, ids[0])
+		} else {
+			result, err = mapper.PreparedQueryIntoBytes("SELECT get_exercise_history(%v)", id, limit, skip)
+		}
 		if err != nil {
 			return http.StatusNotFound
 		}
@@ -100,13 +113,13 @@ func ExerciseHistoryHandler(mapper *datamapper.DataMapper, extractor idextractor
 	return createHandler(handlerFunc)
 }
 
-func NextModulesForUserHandler(mapper *datamapper.DataMapper, extractor idextractor.Extractor) http.Handler {
+func NextModulesForUserHandler(mapper *pgmapper.Mapper, extractor idextractor.Extractor) http.Handler {
 	handlerFunc := func(w http.ResponseWriter, r *http.Request) int {
 		id, err := extractor(r)
 		if err != nil {
 			return http.StatusInternalServerError
 		}
-		result, err := mapper.GetNextModulesForUser(id)
+		result, err := mapper.PreparedQueryIntoBytes("SELECT get_next_modules_for_user(%v)", id)
 		if err != nil {
 			return http.StatusNotFound
 		}
@@ -120,13 +133,13 @@ func NextModulesForUserHandler(mapper *datamapper.DataMapper, extractor idextrac
 	return createHandler(handlerFunc)
 }
 
-func TopicBalanceHandler(mapper *datamapper.DataMapper, extractor idextractor.Extractor) http.Handler {
+func TopicBalanceHandler(mapper *pgmapper.Mapper, extractor idextractor.Extractor) http.Handler {
 	handlerFunc := func(w http.ResponseWriter, r *http.Request) int {
 		id, err := extractor(r)
 		if err != nil {
 			return http.StatusInternalServerError
 		}
-		result, err := mapper.GetTopicBalances(id)
+		result, err := mapper.PreparedQueryIntoBytes("Select get_balances(%v)", id)
 		if err != nil {
 			return http.StatusNotFound
 		}
@@ -140,7 +153,7 @@ func TopicBalanceHandler(mapper *datamapper.DataMapper, extractor idextractor.Ex
 	return createHandler(handlerFunc)
 }
 
-func ModuleStartHandler(mapper *datamapper.DataMapper, extractor idextractor.Extractor) http.Handler {
+func ModuleStartHandler(mapper *pgmapper.Mapper, extractor idextractor.Extractor) http.Handler {
 	handlerFunc := func(w http.ResponseWriter, r *http.Request) int {
 		id, err := extractor(r)
 		if err != nil {
@@ -151,7 +164,7 @@ func ModuleStartHandler(mapper *datamapper.DataMapper, extractor idextractor.Ext
 		if err != nil {
 			return http.StatusBadRequest
 		}
-		err = mapper.StartModule(id, moduleId)
+		err = mapper.Execute("insert into module_progress_histories(user_id,module_id,amount,time,state) values(%v)", id, moduleId, 0, time.Now(), 1)
 		if err != nil {
 			return http.StatusInternalServerError
 		}
@@ -160,7 +173,7 @@ func ModuleStartHandler(mapper *datamapper.DataMapper, extractor idextractor.Ext
 	return createHandler(handlerFunc)
 }
 
-func ExerciseStartHandler(mapper *datamapper.DataMapper, extractor idextractor.Extractor) http.Handler {
+func ExerciseStartHandler(mapper *pgmapper.Mapper, extractor idextractor.Extractor) http.Handler {
 	handlerFunc := func(w http.ResponseWriter, r *http.Request) int {
 		id, err := extractor(r)
 		if err != nil {
@@ -171,7 +184,7 @@ func ExerciseStartHandler(mapper *datamapper.DataMapper, extractor idextractor.E
 		if err != nil {
 			return http.StatusBadRequest
 		}
-		err = mapper.StartExercise(id, exerciseId)
+		err = mapper.Execute("insert into exercise_progress_histories(user_id,exercise_id,amount,time,state) values(%v)", id, exerciseId, 0, time.Now(), 1)
 		if err != nil {
 			return http.StatusNotFound
 		}

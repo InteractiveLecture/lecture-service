@@ -28,7 +28,7 @@ func generateAddModule(id, userId string, officers, assistants map[string]bool, 
 	value := op.Value.(map[string]interface{})
 	command := buildDefaultCommand("SELECT add_module(%v)", value["id"], id, value["description"], value["video_id"], value["script_id"], value["parents"])
 	command.AfterCallback = func(transaction, prev interface{}) (interface{}, error) {
-		client := serviceclient.GetInstance("acl-service")
+		client := serviceclient.New("acl-service")
 		err := checkStatus(client.Post("/objects", "json", strings.NewReader(value["id"].(string))))
 		if err != nil {
 			return nil, err
@@ -60,7 +60,7 @@ func generateRemoveModuleTree(id, userId string, officers, assistants map[string
 		return val, nil
 	}
 	command.AfterCallback = func(transaction, prev interface{}) (interface{}, error) {
-		client := serviceclient.GetInstance("acl-service")
+		client := serviceclient.New("acl-service")
 		return nil, checkStatus(client.Delete(fmt.Sprintf("/objects?oid=%s", prev.(string))))
 	}
 	return command, nil
@@ -73,7 +73,7 @@ func generateRemoveModule(id, userId string, officers, assistants map[string]boo
 	}
 	command := buildDefaultCommand("SELECT remove_module(%v)", id, params["moduleId"])
 	command.AfterCallback = func(transaction, prev interface{}) (interface{}, error) {
-		client := serviceclient.GetInstance("acl-service")
+		client := serviceclient.New("acl-service")
 		return nil, checkStatus(client.Delete(fmt.Sprintf("/objects/%s", params["moduleId"])))
 	}
 	return command, nil
@@ -130,7 +130,7 @@ func setPermissions(topicId, userId string, txn *sql.Tx, permissions map[string]
 		return nil
 	}
 	oids = "oid=" + oids
-	client := serviceclient.GetInstance("acl-service")
+	client := serviceclient.New("acl-service")
 	//TODO post multiple sids in acl einfügen endpiont in acl-service einfügen
 	newPermissions, _ := json.Marshal(permissions)
 	resp, err := client.Put(fmt.Sprintf("/sids/%s/permissions?%s", userId, oids), "application/json", bytes.NewReader(newPermissions))

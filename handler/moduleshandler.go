@@ -7,15 +7,15 @@ import (
 	"net/http"
 
 	"github.com/InteractiveLecture/id-extractor"
+	"github.com/InteractiveLecture/pgmapper"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gorilla/context"
 	"github.com/richterrettich/jsonpatch"
-	"github.com/richterrettich/lecture-service/datamapper"
 	"github.com/richterrettich/lecture-service/lecturepatch"
 	"github.com/richterrettich/lecture-service/paginator"
 )
 
-func ModulesTreeHandler(mapper *datamapper.DataMapper, extractor idextractor.Extractor) http.Handler {
+func ModulesTreeHandler(mapper *pgmapper.Mapper, extractor idextractor.Extractor) http.Handler {
 	handlerFunc := func(w http.ResponseWriter, r *http.Request) int {
 		id, err := extractor(r)
 		if err != nil {
@@ -27,7 +27,7 @@ func ModulesTreeHandler(mapper *datamapper.DataMapper, extractor idextractor.Ext
 			log.Println("error parsing depth request in ModulesTreeHandler")
 			return http.StatusInternalServerError
 		}
-		result, err := mapper.GetModuleRange(id, dr)
+		result, err := mapper.PreparedQueryIntoBytes(`SELECT get_module_tree($1,$2,$3)`, id, dr.Descendants, dr.Ancestors)
 		if err != nil {
 			log.Println(err)
 			return http.StatusInternalServerError
@@ -42,14 +42,14 @@ func ModulesTreeHandler(mapper *datamapper.DataMapper, extractor idextractor.Ext
 	return createHandler(handlerFunc)
 }
 
-func ModulesGetHandler(mapper *datamapper.DataMapper, extractor idextractor.Extractor) http.Handler {
+func ModulesGetHandler(mapper *pgmapper.Mapper, extractor idextractor.Extractor) http.Handler {
 	handlerFunc := func(w http.ResponseWriter, r *http.Request) int {
 		id, err := extractor(r)
 		if err != nil {
 			log.Println("error with extractor in ModulesGetHandler")
 			return http.StatusInternalServerError
 		}
-		result, err := mapper.GetOneModule(id)
+		result, err := mapper.PreparedQueryIntoBytes(`SELECT details from module_details where id = $1`, id)
 		if err != nil {
 			return http.StatusNotFound
 		}
@@ -63,7 +63,7 @@ func ModulesGetHandler(mapper *datamapper.DataMapper, extractor idextractor.Extr
 	return createHandler(handlerFunc)
 }
 
-func ModulesPatchHandler(mapper *datamapper.DataMapper, extractor idextractor.Extractor) http.Handler {
+func ModulesPatchHandler(mapper *pgmapper.Mapper, extractor idextractor.Extractor) http.Handler {
 	handlerFunc := func(w http.ResponseWriter, r *http.Request) int {
 		id, err := extractor(r)
 		if err != nil {

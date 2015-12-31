@@ -8,21 +8,21 @@ import (
 	"net/http"
 
 	"github.com/InteractiveLecture/id-extractor"
+	"github.com/InteractiveLecture/pgmapper"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gorilla/context"
 	"github.com/richterrettich/jsonpatch"
-	"github.com/richterrettich/lecture-service/datamapper"
 	"github.com/richterrettich/lecture-service/lecturepatch"
 	"github.com/richterrettich/lecture-service/paginator"
 )
 
-func TopicCollectionHandler(mapper *datamapper.DataMapper) http.Handler {
+func TopicCollectionHandler(mapper *pgmapper.Mapper) http.Handler {
 	handlerFunc := func(w http.ResponseWriter, r *http.Request) int {
 		pageRequest, err := paginator.ParsePages(r.URL)
 		if err != nil {
 			return http.StatusInternalServerError
 		}
-		result, err := mapper.GetTopicsPage(pageRequest)
+		result, err := mapper.PreparedQueryIntoBytes(`SELECT * from query_topics($1,$2)`, pageRequest.Number*pageRequest.Size, pageRequest.Size)
 		if err != nil {
 			log.Println(err)
 			return http.StatusInternalServerError
@@ -37,13 +37,13 @@ func TopicCollectionHandler(mapper *datamapper.DataMapper) http.Handler {
 	return createHandler(handlerFunc)
 }
 
-func TopicFindHandler(mapper *datamapper.DataMapper, extractor idextractor.Extractor) http.Handler {
+func TopicFindHandler(mapper *pgmapper.Mapper, extractor idextractor.Extractor) http.Handler {
 	handlerFunc := func(w http.ResponseWriter, r *http.Request) int {
 		id, err := extractor(r)
 		if err != nil {
 			return http.StatusInternalServerError
 		}
-		result, err := mapper.GetOneTopic(id)
+		result, err := mapper.PreparedQueryIntoBytes(`SELECT get_topic($1)`, id)
 		if err != nil {
 			return http.StatusNotFound
 		}
@@ -57,14 +57,14 @@ func TopicFindHandler(mapper *datamapper.DataMapper, extractor idextractor.Extra
 	return createHandler(handlerFunc)
 }
 
-func TopicCreateHandler(mapper *datamapper.DataMapper) http.Handler {
+func TopicCreateHandler(mapper *pgmapper.Mapper) http.Handler {
 	handlerFunc := func(w http.ResponseWriter, r *http.Request) int {
 		var topic = make(map[string]interface{})
 		err := json.NewDecoder(r.Body).Decode(topic)
 		if err != nil {
 			return http.StatusBadRequest
 		}
-		err = mapper.CreateTopic(topic)
+		err = mapper.Execute("SELECT add_topic(%v)", topic["id"], topic["name"], topic["description"], topic["officers"])
 		if err != nil {
 			return http.StatusBadRequest // TODO it could be an internal server error as well. need distinction
 		}
@@ -74,7 +74,7 @@ func TopicCreateHandler(mapper *datamapper.DataMapper) http.Handler {
 	return createHandler(handlerFunc)
 }
 
-func TopicPatchHandler(mapper *datamapper.DataMapper, extractor idextractor.Extractor) http.Handler {
+func TopicPatchHandler(mapper *pgmapper.Mapper, extractor idextractor.Extractor) http.Handler {
 	handlerFunc := func(w http.ResponseWriter, r *http.Request) int {
 		id, err := extractor(r)
 		if err != nil {
@@ -95,7 +95,7 @@ func TopicPatchHandler(mapper *datamapper.DataMapper, extractor idextractor.Extr
 	return createHandler(handlerFunc)
 }
 
-func TopicAddOfficerHandler(mapper *datamapper.DataMapper, extractor idextractor.Extractor) http.Handler {
+func TopicAddOfficerHandler(mapper *pgmapper.Mapper, extractor idextractor.Extractor) http.Handler {
 	handlerFunc := func(w http.ResponseWriter, r *http.Request) int {
 		id, err := extractor(r)
 		if err != nil {
@@ -106,7 +106,7 @@ func TopicAddOfficerHandler(mapper *datamapper.DataMapper, extractor idextractor
 		if err != nil {
 			return http.StatusBadRequest
 		}
-		err = mapper.AddOfficer(id, officer)
+		err = mapper.Execute(`SELECT add_officer($1,$2)`, id, officer)
 		if err != nil {
 			return http.StatusInternalServerError
 		}
@@ -115,7 +115,7 @@ func TopicAddOfficerHandler(mapper *datamapper.DataMapper, extractor idextractor
 	return createHandler(handlerFunc)
 }
 
-func TopicRemoveOfficerHandler(mapper *datamapper.DataMapper, extractor idextractor.Extractor) http.Handler {
+func TopicRemoveOfficerHandler(mapper *pgmapper.Mapper, extractor idextractor.Extractor) http.Handler {
 	handlerFunc := func(w http.ResponseWriter, r *http.Request) int {
 		id, err := extractor(r)
 		if err != nil {
@@ -126,7 +126,7 @@ func TopicRemoveOfficerHandler(mapper *datamapper.DataMapper, extractor idextrac
 		if err != nil {
 			return http.StatusBadRequest
 		}
-		err = mapper.RemoveOfficer(id, officer)
+		err = mapper.Execute(`SELECT remove_officer($1,$2)`, id, officer)
 		if err != nil {
 			return http.StatusInternalServerError
 		}
