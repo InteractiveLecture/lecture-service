@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/InteractiveLecture/id-extractor"
+	"github.com/InteractiveLecture/lecture-service/paginator"
 	"github.com/InteractiveLecture/pgmapper"
-	"github.com/richterrettich/lecture-service/paginator"
 )
 
 func HintHistoryHandler(mapper *pgmapper.Mapper, extractor idextractor.Extractor) http.Handler {

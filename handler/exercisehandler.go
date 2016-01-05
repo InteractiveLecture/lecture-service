@@ -10,10 +10,10 @@ import (
 
 	"github.com/InteractiveLecture/id-extractor"
 	"github.com/InteractiveLecture/jsonpatch"
+	"github.com/InteractiveLecture/lecture-service/lecturepatch"
 	"github.com/InteractiveLecture/pgmapper"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gorilla/context"
-	"github.com/richterrettich/lecture-service/lecturepatch"
 )
 
 func GetHintHandler(mapper *pgmapper.Mapper, extractor idextractor.Extractor) http.Handler {

@@ -8,11 +8,11 @@ import (
 
 	"github.com/InteractiveLecture/id-extractor"
 	"github.com/InteractiveLecture/jsonpatch"
+	"github.com/InteractiveLecture/lecture-service/lecturepatch"
+	"github.com/InteractiveLecture/lecture-service/paginator"
 	"github.com/InteractiveLecture/pgmapper"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gorilla/context"
-	"github.com/richterrettich/lecture-service/lecturepatch"
-	"github.com/richterrettich/lecture-service/paginator"
 )
 
 func ModulesTreeHandler(mapper *pgmapper.Mapper, extractor idextractor.Extractor) http.Handler {

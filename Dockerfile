@@ -1,4 +1,4 @@
-FROM scratch
+FROM alpine:3.1
 #ADD ca-certificates.crt /etc/ssl/certs/
 ADD out/main /main
 ADD tmp /tmp

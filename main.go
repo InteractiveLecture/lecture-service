@@ -8,10 +8,10 @@ import (
 	"net/http"
 
 	"github.com/InteractiveLecture/id-extractor"
+	"github.com/InteractiveLecture/lecture-service/handler"
 	"github.com/InteractiveLecture/pgmapper"
 	"github.com/gorilla/mux"
 	"github.com/nats-io/nats"
-	"github.com/richterrettich/lecture-service/handler"
 )
 
 func main() {
