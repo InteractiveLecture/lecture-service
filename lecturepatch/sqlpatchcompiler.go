@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/InteractiveLecture/jsonpatch"
 	"github.com/InteractiveLecture/pgmapper/pgutil"
 	"github.com/ant0ine/go-urlrouter"
-	"github.com/richterrettich/jsonpatch"
 )
 
 var PermissionDeniedError = errors.New("Permission Denied")

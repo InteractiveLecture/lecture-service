@@ -9,9 +9,9 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/InteractiveLecture/jsonpatch"
 	"github.com/InteractiveLecture/serviceclient"
 	"github.com/ant0ine/go-urlrouter"
-	"github.com/richterrettich/jsonpatch"
 )
 
 type TopicPatchCompiler struct{}

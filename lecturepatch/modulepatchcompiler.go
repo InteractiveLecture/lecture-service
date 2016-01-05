@@ -4,9 +4,9 @@ import (
 	"database/sql"
 	"strings"
 
+	"github.com/InteractiveLecture/jsonpatch"
 	"github.com/InteractiveLecture/serviceclient"
 	"github.com/ant0ine/go-urlrouter"
-	"github.com/richterrettich/jsonpatch"
 )
 
 type ModulePatchCompiler struct {

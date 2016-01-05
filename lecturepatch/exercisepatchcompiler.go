@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/InteractiveLecture/jsonpatch"
 	"github.com/ant0ine/go-urlrouter"
-	"github.com/richterrettich/jsonpatch"
 )
 
 type ExercisePatchCompiler struct{}

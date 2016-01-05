@@ -7,10 +7,10 @@ import (
 	"net/http"
 
 	"github.com/InteractiveLecture/id-extractor"
+	"github.com/InteractiveLecture/jsonpatch"
 	"github.com/InteractiveLecture/pgmapper"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gorilla/context"
-	"github.com/richterrettich/jsonpatch"
 	"github.com/richterrettich/lecture-service/lecturepatch"
 	"github.com/richterrettich/lecture-service/paginator"
 )
