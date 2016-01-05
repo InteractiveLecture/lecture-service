@@ -12,6 +12,7 @@ install:
   - go get github.com/richterrettich/jsonpatch
   - go get github.com/InteractiveLecture/pgmapper
   - go get github.com/gorilla/mux
+  - go get github.com/ant0ine/go-urlrouter
 
 script:
   - ./build.sh
