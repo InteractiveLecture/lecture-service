@@ -22,7 +22,7 @@ func TopicCollectionHandler(mapper *pgmapper.Mapper) http.Handler {
 		if err != nil {
 			return http.StatusInternalServerError
 		}
-		result, err := mapper.PreparedQueryIntoBytes(`SELECT * from query_topics($1,$2)`, pageRequest.Number*pageRequest.Size, pageRequest.Size)
+		result, err := mapper.PreparedQueryIntoBytes("SELECT * from query_topics(%v)", pageRequest.Number*pageRequest.Size, pageRequest.Size)
 		if err != nil {
 			log.Println(err)
 			return http.StatusInternalServerError
