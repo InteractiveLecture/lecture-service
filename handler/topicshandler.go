@@ -43,7 +43,7 @@ func TopicFindHandler(mapper *pgmapper.Mapper, extractor idextractor.Extractor) 
 		if err != nil {
 			return http.StatusInternalServerError
 		}
-		result, err := mapper.PreparedQueryIntoBytes(`SELECT get_topic($1)`, id)
+		result, err := mapper.PreparedQueryIntoBytes("SELECT get_topic(%v)", id)
 		if err != nil {
 			return http.StatusNotFound
 		}
@@ -106,7 +106,7 @@ func TopicAddOfficerHandler(mapper *pgmapper.Mapper, extractor idextractor.Extra
 		if err != nil {
 			return http.StatusBadRequest
 		}
-		err = mapper.Execute(`SELECT add_officer($1,$2)`, id, officer)
+		err = mapper.Execute("SELECT add_officer(%v)", id, officer)
 		if err != nil {
 			return http.StatusInternalServerError
 		}
@@ -126,7 +126,7 @@ func TopicRemoveOfficerHandler(mapper *pgmapper.Mapper, extractor idextractor.Ex
 		if err != nil {
 			return http.StatusBadRequest
 		}
-		err = mapper.Execute(`SELECT remove_officer($1,$2)`, id, officer)
+		err = mapper.Execute("SELECT remove_officer(%v)", id, officer)
 		if err != nil {
 			return http.StatusInternalServerError
 		}
