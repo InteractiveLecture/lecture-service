@@ -11,6 +11,7 @@ import (
 	"github.com/InteractiveLecture/jsonpatch"
 	"github.com/InteractiveLecture/lecture-service/lecturepatch"
 	"github.com/InteractiveLecture/lecture-service/paginator"
+	"github.com/InteractiveLecture/middlewares/jwtware"
 	"github.com/InteractiveLecture/pgmapper"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gorilla/context"
@@ -34,7 +35,7 @@ func TopicCollectionHandler(mapper *pgmapper.Mapper) http.Handler {
 		}
 		return -1
 	}
-	return createHandler(handlerFunc)
+	return jwtware.New(createHandler(handlerFunc))
 }
 
 func TopicFindHandler(mapper *pgmapper.Mapper, extractor idextractor.Extractor) http.Handler {
@@ -54,7 +55,7 @@ func TopicFindHandler(mapper *pgmapper.Mapper, extractor idextractor.Extractor) 
 		}
 		return -1
 	}
-	return createHandler(handlerFunc)
+	return jwtware.New(createHandler(handlerFunc))
 }
 
 func TopicCreateHandler(mapper *pgmapper.Mapper) http.Handler {
@@ -71,7 +72,7 @@ func TopicCreateHandler(mapper *pgmapper.Mapper) http.Handler {
 		w.WriteHeader(http.StatusCreated)
 		return -1
 	}
-	return createHandler(handlerFunc)
+	return jwtware.New(createHandler(handlerFunc))
 }
 
 func TopicPatchHandler(mapper *pgmapper.Mapper, extractor idextractor.Extractor) http.Handler {
@@ -92,7 +93,7 @@ func TopicPatchHandler(mapper *pgmapper.Mapper, extractor idextractor.Extractor)
 		}
 		return -1
 	}
-	return createHandler(handlerFunc)
+	return jwtware.New(createHandler(handlerFunc))
 }
 
 func TopicAddOfficerHandler(mapper *pgmapper.Mapper, extractor idextractor.Extractor) http.Handler {
@@ -112,7 +113,7 @@ func TopicAddOfficerHandler(mapper *pgmapper.Mapper, extractor idextractor.Extra
 		}
 		return -1
 	}
-	return createHandler(handlerFunc)
+	return jwtware.New(createHandler(handlerFunc))
 }
 
 func TopicRemoveOfficerHandler(mapper *pgmapper.Mapper, extractor idextractor.Extractor) http.Handler {
@@ -132,5 +133,5 @@ func TopicRemoveOfficerHandler(mapper *pgmapper.Mapper, extractor idextractor.Ex
 		}
 		return -1
 	}
-	return createHandler(handlerFunc)
+	return jwtware.New(createHandler(handlerFunc))
 }

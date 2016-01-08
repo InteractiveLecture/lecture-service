@@ -1,0 +1,92 @@
+gateway:
+  image: openservice/gateway-service
+  links:
+    - "discovery:discovery"
+  ports:
+    - "80:80"
+  command: "/bin/bash -c 'sleep 10 && my_init'"
+
+nats:
+  image: nats
+  expose: 
+    - "4222"
+discovery:
+  image: progrium/consul
+  expose:
+    - "8500"
+    - "8400"
+    - "53/udp"
+  hostname: "node1"
+  command: "-server -bootstrap"
+
+registrator:
+  image: gliderlabs/registrator
+  volumes:
+    - "/var/run/docker.sock:/tmp/docker.sock"
+  links:
+    - "discovery:discovery"
+  command: "-internal consul://discovery:8500"
+
+authentication:
+  image: openservice/authentication-service
+  links:
+    - "authdatabase:postgres"
+    - "discovery:discovery"
+    - "nats:nats"
+  expose:
+    - "8080"
+  environment:
+    - "SERVICE_NAME=authentication-service"
+    - "SERVICE_TAGS=interactive-lecture"
+
+authdatabase:
+  image: postgres
+  expose:
+    - "5432"  
+  environment:
+    - "SERVICE_IGNORE=1"
+    - "POSTGRES_PASSWORD=users"
+    - "POSTGRES_USER=users"
+
+lecture:
+  image: openservice/lecture-service
+  links:
+    - "lecturedatabase:postgres"
+    - "discovery:discovery"
+    - "nats:nats"
+  expose:
+    - "8080"
+  environment:
+    - "SERVICE_NAME=lecture-service"
+    - "SERVICE_TAGS=interactive-lecture"
+  command: "/main -dbhost=postgres"
+
+lecturedatabase:
+  image: openservice/lecture-testdatabase
+  environment:
+    - "SERVICE_IGNORE=1"
+  expose:
+    - "5432"
+
+acl:
+  image: openservice/acl-service
+  links: 
+    - "acldatabase:postgres"
+    - "nats:nats"
+    - "discovery:discovery"
+  environment:
+    - "SERVICE_NAME=acl-service"
+    - "SERVICE_TAGS=interactive-lecture"
+  expose:
+    - "8080"
+  links:
+    - "acldatabase:postgres"
+    - "discovery:discovery"
+
+acldatabase:
+  image: openservice/acl-database
+  environment:
+    - "SERVICE_IGNORE=1"
+  expose:
+    - "5432"  
+
