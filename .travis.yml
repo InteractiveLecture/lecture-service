@@ -23,6 +23,7 @@ install:
   - go get github.com/gorilla/mux
   - go get github.com/ant0ine/go-urlrouter
   - go get github.com/nats-io/nats
+  - go get github.com/stretchr/testify/assert
 
 script:
   - ./build.sh
