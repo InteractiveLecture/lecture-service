@@ -66,6 +66,9 @@ func getToken() string {
 		panic(err)
 	}
 	defer result.Body.Close()
+	if result.StatusCode != 200 {
+		panic(Errors.New("expected statuscode 200 from authentication-service, but got: ", result.StatusCode, result.Status))
+	}
 	token := make(map[string]interface{})
 	err = json.NewDecoder(result.Body).Decode(&token)
 	if err != nil {
