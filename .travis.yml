@@ -27,4 +27,4 @@ install:
   - go get github.com/stretchr/testify/assert
 
 script:
-  - ./build.sh
+  - ./build.sh && ./test.sh && ./push.sh

@@ -10,6 +10,7 @@ import (
 	"github.com/InteractiveLecture/jsonpatch"
 	"github.com/InteractiveLecture/lecture-service/lecturepatch"
 	"github.com/InteractiveLecture/lecture-service/paginator"
+	"github.com/InteractiveLecture/middlewares/jwtware"
 	"github.com/InteractiveLecture/pgmapper"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gorilla/context"
@@ -27,7 +28,7 @@ func ModulesTreeHandler(mapper *pgmapper.Mapper, extractor idextractor.Extractor
 			log.Println("error parsing depth request in ModulesTreeHandler")
 			return http.StatusInternalServerError
 		}
-		result, err := mapper.PreparedQueryIntoBytes(`SELECT get_module_tree($1,$2,$3)`, id, dr.Descendants, dr.Ancestors)
+		result, err := mapper.PreparedQueryIntoBytes("SELECT get_module_tree(%v)", id, dr.Descendants, dr.Ancestors)
 		if err != nil {
 			log.Println(err)
 			return http.StatusInternalServerError
@@ -39,7 +40,7 @@ func ModulesTreeHandler(mapper *pgmapper.Mapper, extractor idextractor.Extractor
 		}
 		return -1
 	}
-	return createHandler(handlerFunc)
+	return jwtware.New(createHandler(handlerFunc))
 }
 
 func ModulesGetHandler(mapper *pgmapper.Mapper, extractor idextractor.Extractor) http.Handler {
@@ -49,7 +50,7 @@ func ModulesGetHandler(mapper *pgmapper.Mapper, extractor idextractor.Extractor)
 			log.Println("error with extractor in ModulesGetHandler")
 			return http.StatusInternalServerError
 		}
-		result, err := mapper.PreparedQueryIntoBytes(`SELECT details from module_details where id = $1`, id)
+		result, err := mapper.QueryIntoBytes(`SELECT details from module_details where id = $1`, id)
 		if err != nil {
 			return http.StatusNotFound
 		}
@@ -60,7 +61,7 @@ func ModulesGetHandler(mapper *pgmapper.Mapper, extractor idextractor.Extractor)
 		}
 		return -1
 	}
-	return createHandler(handlerFunc)
+	return jwtware.New(createHandler(handlerFunc))
 }
 
 func ModulesPatchHandler(mapper *pgmapper.Mapper, extractor idextractor.Extractor) http.Handler {
@@ -81,5 +82,5 @@ func ModulesPatchHandler(mapper *pgmapper.Mapper, extractor idextractor.Extracto
 		}
 		return -1
 	}
-	return createHandler(handlerFunc)
+	return jwtware.New(createHandler(handlerFunc))
 }

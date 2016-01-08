@@ -10,6 +10,7 @@ import (
 
 	"github.com/InteractiveLecture/id-extractor"
 	"github.com/InteractiveLecture/lecture-service/paginator"
+	"github.com/InteractiveLecture/middlewares/jwtware"
 	"github.com/InteractiveLecture/pgmapper"
 )
 
@@ -41,7 +42,7 @@ func HintHistoryHandler(mapper *pgmapper.Mapper, extractor idextractor.Extractor
 		}
 		return -1
 	}
-	return createHandler(handlerFunc)
+	return jwtware.New(createHandler(handlerFunc))
 }
 
 func ModuleHistoryHandler(mapper *pgmapper.Mapper, extractor idextractor.Extractor) http.Handler {
@@ -76,7 +77,7 @@ func ModuleHistoryHandler(mapper *pgmapper.Mapper, extractor idextractor.Extract
 		}
 		return -1
 	}
-	return createHandler(handlerFunc)
+	return jwtware.New(createHandler(handlerFunc))
 }
 
 func ExerciseHistoryHandler(mapper *pgmapper.Mapper, extractor idextractor.Extractor) http.Handler {
@@ -110,7 +111,7 @@ func ExerciseHistoryHandler(mapper *pgmapper.Mapper, extractor idextractor.Extra
 		}
 		return -1
 	}
-	return createHandler(handlerFunc)
+	return jwtware.New(createHandler(handlerFunc))
 }
 
 func NextModulesForUserHandler(mapper *pgmapper.Mapper, extractor idextractor.Extractor) http.Handler {
@@ -130,7 +131,7 @@ func NextModulesForUserHandler(mapper *pgmapper.Mapper, extractor idextractor.Ex
 		}
 		return -1
 	}
-	return createHandler(handlerFunc)
+	return jwtware.New(createHandler(handlerFunc))
 }
 
 func TopicBalanceHandler(mapper *pgmapper.Mapper, extractor idextractor.Extractor) http.Handler {
@@ -150,7 +151,7 @@ func TopicBalanceHandler(mapper *pgmapper.Mapper, extractor idextractor.Extracto
 		}
 		return -1
 	}
-	return createHandler(handlerFunc)
+	return jwtware.New(createHandler(handlerFunc))
 }
 
 func ModuleStartHandler(mapper *pgmapper.Mapper, extractor idextractor.Extractor) http.Handler {
@@ -170,7 +171,7 @@ func ModuleStartHandler(mapper *pgmapper.Mapper, extractor idextractor.Extractor
 		}
 		return -1
 	}
-	return createHandler(handlerFunc)
+	return jwtware.New(createHandler(handlerFunc))
 }
 
 func ExerciseStartHandler(mapper *pgmapper.Mapper, extractor idextractor.Extractor) http.Handler {
@@ -190,5 +191,5 @@ func ExerciseStartHandler(mapper *pgmapper.Mapper, extractor idextractor.Extract
 		}
 		return -1
 	}
-	return createHandler(handlerFunc)
+	return jwtware.New(createHandler(handlerFunc))
 }

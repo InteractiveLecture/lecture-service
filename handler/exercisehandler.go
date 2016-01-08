@@ -11,6 +11,7 @@ import (
 	"github.com/InteractiveLecture/id-extractor"
 	"github.com/InteractiveLecture/jsonpatch"
 	"github.com/InteractiveLecture/lecture-service/lecturepatch"
+	"github.com/InteractiveLecture/middlewares/jwtware"
 	"github.com/InteractiveLecture/pgmapper"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gorilla/context"
@@ -37,7 +38,7 @@ func GetHintHandler(mapper *pgmapper.Mapper, extractor idextractor.Extractor) ht
 		}
 		return -1
 	}
-	return createHandler(handlerFunc)
+	return jwtware.New(createHandler(handlerFunc))
 }
 
 func PurchaseHintHandler(mapper *pgmapper.Mapper, extractor idextractor.Extractor) http.Handler {
@@ -62,7 +63,7 @@ func PurchaseHintHandler(mapper *pgmapper.Mapper, extractor idextractor.Extracto
 			return http.StatusInternalServerError
 		}
 	}
-	return createHandler(handlerFunc)
+	return jwtware.New(createHandler(handlerFunc))
 }
 
 /*
@@ -104,5 +105,5 @@ func ExercisePatchHandler(mapper *pgmapper.Mapper, extractor idextractor.Extract
 		}
 		return -1
 	}
-	return createHandler(handlerFunc)
+	return jwtware.New(createHandler(handlerFunc))
 }

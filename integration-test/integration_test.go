@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"os"
 	"strings"
@@ -29,6 +30,17 @@ func TestGetTopics(t *testing.T) {
 	}
 	assert.Equal(t, 2, len(topics))
 	assert.Equal(t, topics[0]["name"].(string), "Grundlagen der Programmierung mit Java")
+	topicId := topics[0]["id"].(string)
+	resp, err = getUnauthorized("/lecture-service/topics/" + topicId + "/modules")
+	assert.Nil(t, err)
+	defer resp.Body.Close()
+	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
+	resp, err = getAuthorized("/lecture-service/topics/" + topicId + "/modules")
+	assert.Nil(t, err)
+	defer resp.Body.Close()
+	modules := make([]map[string]interface{}, 0)
+	err = json.NewDecoder(resp.Body).Decode(&modules)
+	assert.Nil(t, err)
 }
 
 func getUnauthorized(path string) (*http.Response, error) {
@@ -67,7 +79,7 @@ func getToken() string {
 	}
 	defer result.Body.Close()
 	if result.StatusCode != 200 {
-		panic(Errors.New("expected statuscode 200 from authentication-service, but got: ", result.StatusCode, result.Status))
+		panic(errors.New("expected statuscode 200 from authentication-service, but got: " + result.Status))
 	}
 	token := make(map[string]interface{})
 	err = json.NewDecoder(result.Body).Decode(&token)
