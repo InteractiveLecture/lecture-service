@@ -75,8 +75,13 @@ func ModulesPatchHandler(mapper *pgmapper.Mapper, extractor idextractor.Extracto
 			return http.StatusBadRequest
 		}
 		userId := context.Get(r, "user").(*jwt.Token).Claims["id"].(string)
+		options := map[string]interface{}{
+			"userId": userId,
+			"id":     id,
+			"jwt":    r.Header.Get("Authorization"),
+		}
 		compiler := lecturepatch.ForModules()
-		err = mapper.ApplyPatch(id, userId, patch, compiler)
+		err = mapper.ApplyPatch(patch, compiler, options)
 		if err != nil {
 			return http.StatusBadRequest
 		}

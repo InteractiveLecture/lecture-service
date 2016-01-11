@@ -5,8 +5,7 @@ import (
 	"io"
 	"log"
 	"net/http"
-
-	"encoding/binary"
+	"strconv"
 
 	"github.com/InteractiveLecture/id-extractor"
 	"github.com/InteractiveLecture/jsonpatch"
@@ -49,17 +48,27 @@ func PurchaseHintHandler(mapper *pgmapper.Mapper, extractor idextractor.Extracto
 		}
 		userId := context.Get(r, "user").(*jwt.Token).Claims["id"].(string)
 		result, err := mapper.PreparedQueryIntoBytes("SELECT purchase_hint(%v)", id, userId)
-		purchaseResult, _ := binary.Varint(result) //TODO check function...something is fishy
+		if err != nil {
+			log.Println(err)
+			return http.StatusInternalServerError
+		}
+		purchaseResult, _ := strconv.Atoi(string(result))
+		log.Println("hint purchase achieved the following result: ", purchaseResult)
 		switch {
 		case purchaseResult == 0:
+			//hint purchase without errors
 			return -1
 		case purchaseResult == 1:
+			//balance not sufficient
 			return 420
 		case purchaseResult == 2:
+			//already purchased
 			return http.StatusConflict
 		case purchaseResult == 3:
+			//hint not found
 			return http.StatusNotFound
 		default:
+			//something different went wrong
 			return http.StatusInternalServerError
 		}
 	}
@@ -98,8 +107,13 @@ func ExercisePatchHandler(mapper *pgmapper.Mapper, extractor idextractor.Extract
 			return http.StatusBadRequest
 		}
 		userId := context.Get(r, "user").(*jwt.Token).Claims["id"].(string)
+		options := map[string]interface{}{
+			"userId": userId,
+			"id":     id,
+			"jwt":    r.Header.Get("Authorization"),
+		}
 		compiler := lecturepatch.ForExercises()
-		err = mapper.ApplyPatch(id, userId, patch, compiler)
+		err = mapper.ApplyPatch(patch, compiler, options)
 		if err != nil {
 			return http.StatusBadRequest
 		}

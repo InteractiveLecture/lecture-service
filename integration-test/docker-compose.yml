@@ -10,6 +10,17 @@ nats:
   image: nats
   expose: 
     - "4222"
+
+natsremote:
+  image: openservice/nats-remote
+  expose:
+    - "8080"
+  environment:
+    - "SERVICE_NAME=nats-remote"
+    - "SERVICE_TAGS=interactive-lecture"
+  links:
+    - "nats:nats"
+
 discovery:
   image: progrium/consul
   expose:
@@ -41,8 +52,8 @@ authentication:
 
 authdatabase:
   image: postgres
-  expose:
-    - "5432"  
+  ports:
+    - "5432:5432"  
   environment:
     - "SERVICE_IGNORE=1"
     - "POSTGRES_PASSWORD=users"
@@ -65,8 +76,8 @@ lecturedatabase:
   image: openservice/lecture-testdatabase
   environment:
     - "SERVICE_IGNORE=1"
-  expose:
-    - "5432"
+  ports:
+    - "5433:5432"
 
 acl:
   image: openservice/acl-service
@@ -82,11 +93,12 @@ acl:
   links:
     - "acldatabase:postgres"
     - "discovery:discovery"
+  command: "/main -dbhost=postgres"
 
 acldatabase:
   image: openservice/acl-database
   environment:
     - "SERVICE_IGNORE=1"
-  expose:
-    - "5432"  
+  ports:
+    - "5434:5432"  
 

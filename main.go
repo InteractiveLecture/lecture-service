@@ -68,6 +68,9 @@ func main() {
 	r.Path("/modules/{id}").
 		Methods("GET").
 		Handler(handler.ModulesGetHandler(mapper, extractor))
+	r.Path("/modules/{id}/start").
+		Methods("POST").
+		Handler(handler.ModuleStartHandler(mapper, extractor))
 	r.Path("/modules/{id}").
 		Methods("PATCH").
 		Handler(handler.ModulesPatchHandler(mapper, extractor))
@@ -82,24 +85,24 @@ func main() {
 	//TODO route for GetOneExercise
 
 	//HISTORIES AND PROGRESS
+	r.Path("/users/{id}/balances").
+		Methods("GET").
+		Handler(handler.TopicBalanceHandler(mapper, extractor))
 	r.Path("/users/{id}/hints").
 		Methods("GET").
 		Handler(handler.HintHistoryHandler(mapper, extractor))
 	r.Path("/users/{id}/modules").
 		Methods("GET").
-		Handler(handler.NextModulesForUserHandler(mapper, extractor))
-	r.Path("/users/{id}/modules/start").
-		Methods("POST").
-		Handler(handler.ModuleStartHandler(mapper, extractor))
+		Handler(handler.ModuleHistoryHandler(mapper, extractor))
 	r.Path("/users/{id}/modules/next").
 		Methods("GET").
-		Handler(handler.ModuleHistoryHandler(mapper, extractor))
+		Handler(handler.NextModulesForUserHandler(mapper, extractor))
 	r.Path("/users/{id}/exercises").
 		Methods("GET").
-		Handler(handler.ExerciseStartHandler(mapper, extractor))
-	r.Path("/users/{id}/exercises/start").
-		Methods("POST").
 		Handler(handler.ExerciseHistoryHandler(mapper, extractor))
+	/*	r.Path("/users/{id}/exercises/start").
+		Methods("POST").
+		Handler(handler.ExerciseHistoryHandler(mapper, extractor))*/
 
 	nc, err := nats.Connect("nats://" + *natsHost + ":" + *natsPort)
 	if err != nil {
@@ -123,7 +126,7 @@ func main() {
 			}
 		}()
 	})
-	nc.Subscribe("finish-task", func(m *nats.Msg) {
+	nc.Subscribe("task-backend.task-finished", func(m *nats.Msg) {
 		go func() {
 			data := make(map[string]interface{})
 			json.NewDecoder(bytes.NewReader(m.Data)).Decode(&data)

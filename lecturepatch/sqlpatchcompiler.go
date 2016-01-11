@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 
 	"github.com/InteractiveLecture/jsonpatch"
@@ -13,7 +14,7 @@ import (
 
 var PermissionDeniedError = errors.New("Permission Denied")
 
-type CommandGenerator func(id, userId string, officers, assistants map[string]bool, op *jsonpatch.Operation, params map[string]string) (*jsonpatch.CommandContainer, error)
+type CommandGenerator func(id, userId, jwt string, officers, assistants map[string]bool, op *jsonpatch.Operation, params map[string]string) (*jsonpatch.CommandContainer, error)
 
 func getTopicAuthority(id string, db *sql.DB) (map[string]bool, map[string]bool, error) {
 	stmt := `SELECT user_id,kind from topic_authority where topic_id = $1`
@@ -50,23 +51,25 @@ func getExerciseAuthority(id string, db *sql.DB) (map[string]bool, map[string]bo
 }
 
 func extractAuthority(rows *sql.Rows) (map[string]bool, map[string]bool, error) {
-	record := make(map[string]interface{})
+	kind := ""
+	userId := ""
 	officers := make(map[string]bool)
 	assistants := make(map[string]bool)
 	err := rows.Err()
 	if err != nil {
+		log.Println("error while extracting authority: ", err)
 		return nil, nil, err
 	}
 	for rows.Next() {
-		err := rows.Scan(&record)
+		err := rows.Scan(&userId, &kind)
 		if err != nil {
 			return nil, nil, err
 		}
-		if record["kind"].(string) == "ASSISTANT" {
-			assistants[record["user_id"].(string)] = true
+		if kind == "ASSISTANT" {
+			assistants[userId] = true
 		}
-		if record["kind"].(string) == "OFFICER" {
-			officers[record["user_id"].(string)] = true
+		if kind == "OFFICER" {
+			officers[userId] = true
 		}
 	}
 	return officers, assistants, nil
@@ -83,7 +86,7 @@ func NewCommandList() *jsonpatch.CommandList {
 	c.Commands = append(c.Commands, createCommand(command, values...))
 }*/
 
-func translatePatch(c *jsonpatch.CommandList, id, userId string, officers, assistants map[string]bool, router *urlrouter.Router, patch *jsonpatch.Patch) error {
+func translatePatch(c *jsonpatch.CommandList, id, userId, jwt string, officers, assistants map[string]bool, router *urlrouter.Router, patch *jsonpatch.Patch) error {
 	for _, op := range patch.Operations {
 		route, params, err := router.FindRoute(op.Path)
 		if err != nil {
@@ -94,7 +97,7 @@ func translatePatch(c *jsonpatch.CommandList, id, userId string, officers, assis
 		}
 		builder := route.Dest.(CommandGenerator)
 
-		command, err := builder(id, userId, officers, assistants, &op, params)
+		command, err := builder(id, userId, jwt, officers, assistants, &op, params)
 		if err != nil {
 			return err
 		}
@@ -105,12 +108,27 @@ func translatePatch(c *jsonpatch.CommandList, id, userId string, officers, assis
 
 func buildDefaultMainCallback(stmt string, params ...interface{}) jsonpatch.ContainerCallback {
 	return func(transaction, prev interface{}) (interface{}, error) {
-		_, err := transaction.(*sql.Tx).Exec(pgutil.Prepare(stmt, params...))
+		stmt, params := pgutil.Prepare(stmt, params...)
+		_, err := transaction.(*sql.Tx).Exec(stmt, params...)
+		if err != nil {
+			log.Printf("error executing database-statement: %s with parameters: %v", stmt, params)
+			return nil, err
+		}
+		return nil, nil
+	}
+}
+
+func buildTransactionSerializableCommand() *jsonpatch.CommandContainer {
+	callback := func(transaction, prev interface{}) (interface{}, error) {
+		_, err := transaction.(*sql.Tx).Exec("SET TRANSACTION ISOLATION LEVEL SERIALIZABLE")
 		if err != nil {
 			return nil, err
 		}
 		return nil, nil
 	}
+	command := new(jsonpatch.CommandContainer)
+	command.MainCallback = callback
+	return command
 }
 
 func buildDefaultCommand(stmt string, params ...interface{}) *jsonpatch.CommandContainer {

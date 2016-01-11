@@ -19,6 +19,7 @@ func ForModules() jsonpatch.PatchCompiler {
 func (compiler ModulePatchCompiler) Compile(patch *jsonpatch.Patch, options map[string]interface{}) (*jsonpatch.CommandList, error) {
 	id, userId := options["id"].(string), options["userId"].(string)
 	db := options["db"].(*sql.DB)
+	jwt := options["jwt"].(string)
 	officers, assistants, err := getModuleAuthority(id, db)
 	if err != nil {
 		return nil, err
@@ -65,14 +66,14 @@ func (compiler ModulePatchCompiler) Compile(patch *jsonpatch.Patch, options map[
 	}
 	result := NewCommandList()
 	result.AddCommands(
-		buildDefaultCommand("SET TRANSACTION ISOLATION LEVEL SERIALIZABLE"),
+		buildTransactionSerializableCommand(),
 		buildDefaultCommand("SELECT check_version(%v)", id, "modules", patch.Version),
 	)
 	err = router.Start()
 	if err != nil {
 		return nil, err
 	}
-	err = translatePatch(result, id, userId, officers, assistants, router, patch)
+	err = translatePatch(result, id, userId, jwt, officers, assistants, router, patch)
 	if err != nil {
 		return nil, err
 	}
@@ -81,7 +82,7 @@ func (compiler ModulePatchCompiler) Compile(patch *jsonpatch.Patch, options map[
 }
 
 // database checked
-func generateReplaceDescription(id, userId string, officers, assistants map[string]bool, op *jsonpatch.Operation, params map[string]string) (*jsonpatch.CommandContainer, error) {
+func generateReplaceDescription(id, userId, jwt string, officers, assistants map[string]bool, op *jsonpatch.Operation, params map[string]string) (*jsonpatch.CommandContainer, error) {
 	if err := checkAuthorityAndValidatePatch(jsonpatch.REPLACE, op.Type, userId, officers); err != nil {
 		return nil, err
 	}
@@ -89,7 +90,7 @@ func generateReplaceDescription(id, userId string, officers, assistants map[stri
 }
 
 //database checked
-func generateAddRecommendation(id, userId string, officers, assistants map[string]bool, op *jsonpatch.Operation, params map[string]string) (*jsonpatch.CommandContainer, error) {
+func generateAddRecommendation(id, userId, jwt string, officers, assistants map[string]bool, op *jsonpatch.Operation, params map[string]string) (*jsonpatch.CommandContainer, error) {
 	if err := checkAuthorityAndValidatePatch(jsonpatch.ADD, op.Type, userId, officers); err != nil {
 		return nil, err
 	}
@@ -97,7 +98,7 @@ func generateAddRecommendation(id, userId string, officers, assistants map[strin
 }
 
 //database checked
-func generateRemoveRecommendation(id, userId string, officers, assistants map[string]bool, op *jsonpatch.Operation, params map[string]string) (*jsonpatch.CommandContainer, error) {
+func generateRemoveRecommendation(id, userId, jwt string, officers, assistants map[string]bool, op *jsonpatch.Operation, params map[string]string) (*jsonpatch.CommandContainer, error) {
 	if err := checkAuthorityAndValidatePatch(jsonpatch.REMOVE, op.Type, userId, officers); err != nil {
 		return nil, err
 	}
@@ -105,7 +106,7 @@ func generateRemoveRecommendation(id, userId string, officers, assistants map[st
 }
 
 //database checked
-func generateAddVideo(id, userId string, officers, assistants map[string]bool, op *jsonpatch.Operation, params map[string]string) (*jsonpatch.CommandContainer, error) {
+func generateAddVideo(id, userId, jwt string, officers, assistants map[string]bool, op *jsonpatch.Operation, params map[string]string) (*jsonpatch.CommandContainer, error) {
 	if err := checkAuthorityAndValidatePatch(jsonpatch.ADD, op.Type, userId, officers); err != nil {
 		return nil, err
 	}
@@ -113,7 +114,7 @@ func generateAddVideo(id, userId string, officers, assistants map[string]bool, o
 }
 
 // database checked
-func generateRemoveVideo(id, userId string, officers, assistants map[string]bool, op *jsonpatch.Operation, params map[string]string) (*jsonpatch.CommandContainer, error) {
+func generateRemoveVideo(id, userId, jwt string, officers, assistants map[string]bool, op *jsonpatch.Operation, params map[string]string) (*jsonpatch.CommandContainer, error) {
 	if err := checkAuthorityAndValidatePatch(jsonpatch.REMOVE, op.Type, userId, officers); err != nil {
 		return nil, err
 	}
@@ -121,7 +122,7 @@ func generateRemoveVideo(id, userId string, officers, assistants map[string]bool
 }
 
 //database checked
-func generateAddScript(id, userId string, officers, assistants map[string]bool, op *jsonpatch.Operation, params map[string]string) (*jsonpatch.CommandContainer, error) {
+func generateAddScript(id, userId, jwt string, officers, assistants map[string]bool, op *jsonpatch.Operation, params map[string]string) (*jsonpatch.CommandContainer, error) {
 	if err := checkAuthorityAndValidatePatch(jsonpatch.ADD, op.Type, userId, officers); err != nil {
 		return nil, err
 	}
@@ -129,7 +130,7 @@ func generateAddScript(id, userId string, officers, assistants map[string]bool, 
 }
 
 //dataase checked
-func generateRemoveScript(id, userId string, officers, assistants map[string]bool, op *jsonpatch.Operation, params map[string]string) (*jsonpatch.CommandContainer, error) {
+func generateRemoveScript(id, userId, jwt string, officers, assistants map[string]bool, op *jsonpatch.Operation, params map[string]string) (*jsonpatch.CommandContainer, error) {
 	if err := checkAuthorityAndValidatePatch(jsonpatch.REMOVE, op.Type, userId, officers); err != nil {
 		return nil, err
 	}
@@ -137,26 +138,26 @@ func generateRemoveScript(id, userId string, officers, assistants map[string]boo
 }
 
 //database checked
-func generateAddExercise(id, userId string, officers, assistants map[string]bool, op *jsonpatch.Operation, params map[string]string) (*jsonpatch.CommandContainer, error) {
+func generateAddExercise(id, userId, jwt string, officers, assistants map[string]bool, op *jsonpatch.Operation, params map[string]string) (*jsonpatch.CommandContainer, error) {
 	if err := checkAuthorityAndValidatePatch(jsonpatch.ADD, op.Type, userId, officers, assistants); err != nil {
 		return nil, err
 	}
 	value := op.Value.(map[string]interface{})
 	command := buildDefaultCommand("SELECT add_exercise(%v)", value["id"], id, value["backend"])
 	command.AfterCallback = func(transaction, prev interface{}) (interface{}, error) {
-		return nil, checkStatus(serviceclient.New("acl-service").Post("/objects", "json", strings.NewReader(value["id"].(string))))
+		return nil, checkStatus(serviceclient.New("acl-service").Post("/objects", "json", strings.NewReader(value["id"].(string)), "Authorization", jwt))
 	}
 	return command, nil
 }
 
 //database checked
-func generateRemoveExercise(id, userId string, officers, assistants map[string]bool, op *jsonpatch.Operation, params map[string]string) (*jsonpatch.CommandContainer, error) {
+func generateRemoveExercise(id, userId, jwt string, officers, assistants map[string]bool, op *jsonpatch.Operation, params map[string]string) (*jsonpatch.CommandContainer, error) {
 	if err := checkAuthorityAndValidatePatch(jsonpatch.REMOVE, op.Type, userId, officers, assistants); err != nil {
 		return nil, err
 	}
 	command := buildDefaultCommand("SELECT remove_exercise(%v)", id, params["exerciseId"])
 	command.AfterCallback = func(transaction, prev interface{}) (interface{}, error) {
-		return nil, checkStatus(serviceclient.New("acl-service").Delete("/objects/" + params["exerciseId"]))
+		return nil, checkStatus(serviceclient.New("acl-service").Delete("/objects/"+params["exerciseId"], "Authorization", jwt))
 	}
 	return command, nil
 }

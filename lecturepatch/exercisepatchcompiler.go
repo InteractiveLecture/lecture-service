@@ -76,16 +76,17 @@ func init() {
 func (c *ExercisePatchCompiler) Compile(patch *jsonpatch.Patch, options map[string]interface{}) (*jsonpatch.CommandList, error) {
 	id, userId := options["id"].(string), options["userId"].(string)
 	db := options["db"].(*sql.DB)
+	jwt := options["jwt"].(string)
 	officers, assistants, err := getExerciseAuthority(id, db)
 	if err != nil {
 		return nil, err
 	}
 	result := NewCommandList()
 	result.AddCommands(
-		buildDefaultCommand("SET TRANSACTION ISOLATION LEVEL SERIALIZABLE"),
+		buildTransactionSerializableCommand(),
 		buildDefaultCommand("SELECT check_version(%v)", id, "exercises", patch.Version),
 	)
-	err = translatePatch(result, id, userId, officers, assistants, &patchRouter, patch)
+	err = translatePatch(result, id, userId, jwt, officers, assistants, &patchRouter, patch)
 	if err != nil {
 		return nil, err
 	}
@@ -94,7 +95,7 @@ func (c *ExercisePatchCompiler) Compile(patch *jsonpatch.Patch, options map[stri
 }
 
 //database checked
-func generateAddTask(id, userId string, officers, assistants map[string]bool, op *jsonpatch.Operation, params map[string]string) (*jsonpatch.CommandContainer, error) {
+func generateAddTask(id, userId, jwt string, officers, assistants map[string]bool, op *jsonpatch.Operation, params map[string]string) (*jsonpatch.CommandContainer, error) {
 	if err := checkAuthorityAndValidatePatch(jsonpatch.ADD, op.Type, userId, officers, assistants); err != nil {
 		return nil, err
 	}
@@ -103,7 +104,7 @@ func generateAddTask(id, userId string, officers, assistants map[string]bool, op
 }
 
 // database checked
-func generateMoveOrRemoveTask(id, userId string, officers, assistants map[string]bool, op *jsonpatch.Operation, params map[string]string) (*jsonpatch.CommandContainer, error) {
+func generateMoveOrRemoveTask(id, userId, jwt string, officers, assistants map[string]bool, op *jsonpatch.Operation, params map[string]string) (*jsonpatch.CommandContainer, error) {
 	switch op.Type {
 	case jsonpatch.REMOVE:
 		newPosition, err := strconv.Atoi(params["taskPosition"])
@@ -146,7 +147,7 @@ func evalFromRoute(from, checkString string, params ...string) ([]int, error) {
 }
 
 //database checked
-func generateAddHint(id, userId string, officers, assistants map[string]bool, op *jsonpatch.Operation, params map[string]string) (*jsonpatch.CommandContainer, error) {
+func generateAddHint(id, userId, jwt string, officers, assistants map[string]bool, op *jsonpatch.Operation, params map[string]string) (*jsonpatch.CommandContainer, error) {
 	if err := checkAuthorityAndValidatePatch(jsonpatch.ADD, op.Type, userId, officers, assistants); err != nil {
 		return nil, err
 	}
@@ -159,7 +160,7 @@ func generateAddHint(id, userId string, officers, assistants map[string]bool, op
 }
 
 //database checked
-func generateMoveOrRemoveHint(id, userId string, officers, assistants map[string]bool, op *jsonpatch.Operation, params map[string]string) (*jsonpatch.CommandContainer, error) {
+func generateMoveOrRemoveHint(id, userId, jwt string, officers, assistants map[string]bool, op *jsonpatch.Operation, params map[string]string) (*jsonpatch.CommandContainer, error) {
 	switch op.Type {
 	case jsonpatch.REMOVE:
 		taskPosition, err := strconv.Atoi(params["taskPosition"])
@@ -191,7 +192,7 @@ func generateMoveOrRemoveHint(id, userId string, officers, assistants map[string
 }
 
 //database checked
-func generateUpdateHintContent(id, userId string, officers, assistants map[string]bool, op *jsonpatch.Operation, params map[string]string) (*jsonpatch.CommandContainer, error) {
+func generateUpdateHintContent(id, userId, jwt string, officers, assistants map[string]bool, op *jsonpatch.Operation, params map[string]string) (*jsonpatch.CommandContainer, error) {
 	if err := checkAuthorityAndValidatePatch(jsonpatch.REPLACE, op.Type, userId, officers, assistants); err != nil {
 		return nil, err
 	}
@@ -207,7 +208,7 @@ func generateUpdateHintContent(id, userId string, officers, assistants map[strin
 }
 
 //database checked
-func generateUpdateHintCost(id, userId string, officers, assistants map[string]bool, op *jsonpatch.Operation, params map[string]string) (*jsonpatch.CommandContainer, error) {
+func generateUpdateHintCost(id, userId, jwt string, officers, assistants map[string]bool, op *jsonpatch.Operation, params map[string]string) (*jsonpatch.CommandContainer, error) {
 	if err := checkAuthorityAndValidatePatch(jsonpatch.REPLACE, op.Type, userId, officers, assistants); err != nil {
 		return nil, err
 	}
@@ -223,7 +224,7 @@ func generateUpdateHintCost(id, userId string, officers, assistants map[string]b
 }
 
 //database checked
-func generateUpdateTaskCommand(id, userId string, officers, assistants map[string]bool, op *jsonpatch.Operation, params map[string]string) (*jsonpatch.CommandContainer, error) {
+func generateUpdateTaskCommand(id, userId, jwt string, officers, assistants map[string]bool, op *jsonpatch.Operation, params map[string]string) (*jsonpatch.CommandContainer, error) {
 	if err := checkAuthorityAndValidatePatch(jsonpatch.REPLACE, op.Type, userId, officers, assistants); err != nil {
 		return nil, err
 	}

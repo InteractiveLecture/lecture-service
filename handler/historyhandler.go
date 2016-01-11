@@ -12,6 +12,8 @@ import (
 	"github.com/InteractiveLecture/lecture-service/paginator"
 	"github.com/InteractiveLecture/middlewares/jwtware"
 	"github.com/InteractiveLecture/pgmapper"
+	"github.com/dgrijalva/jwt-go"
+	"github.com/gorilla/context"
 )
 
 func HintHistoryHandler(mapper *pgmapper.Mapper, extractor idextractor.Extractor) http.Handler {
@@ -70,6 +72,7 @@ func ModuleHistoryHandler(mapper *pgmapper.Mapper, extractor idextractor.Extract
 		if err != nil {
 			return http.StatusNotFound
 		}
+		log.Println("got history: ", string(result))
 		reader := bytes.NewReader(result)
 		_, err = io.Copy(w, reader)
 		if err != nil {
@@ -156,14 +159,11 @@ func TopicBalanceHandler(mapper *pgmapper.Mapper, extractor idextractor.Extracto
 
 func ModuleStartHandler(mapper *pgmapper.Mapper, extractor idextractor.Extractor) http.Handler {
 	handlerFunc := func(w http.ResponseWriter, r *http.Request) int {
-		id, err := extractor(r)
+		user := context.Get(r, "user")
+		id := user.(*jwt.Token).Claims["id"]
+		moduleId, err := extractor(r)
 		if err != nil {
 			return http.StatusInternalServerError
-		}
-		var moduleId string
-		err = json.NewDecoder(r.Body).Decode(moduleId)
-		if err != nil {
-			return http.StatusBadRequest
 		}
 		err = mapper.Execute("insert into module_progress_histories(user_id,module_id,amount,time,state) values(%v)", id, moduleId, 0, time.Now(), 1)
 		if err != nil {

@@ -13,6 +13,7 @@ import (
 	"github.com/InteractiveLecture/lecture-service/paginator"
 	"github.com/InteractiveLecture/middlewares/jwtware"
 	"github.com/InteractiveLecture/pgmapper"
+	"github.com/InteractiveLecture/serviceclient"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gorilla/context"
 )
@@ -61,16 +62,28 @@ func TopicFindHandler(mapper *pgmapper.Mapper, extractor idextractor.Extractor) 
 func TopicCreateHandler(mapper *pgmapper.Mapper) http.Handler {
 	handlerFunc := func(w http.ResponseWriter, r *http.Request) int {
 		var topic = make(map[string]interface{})
-		err := json.NewDecoder(r.Body).Decode(topic)
+		err := json.NewDecoder(r.Body).Decode(&topic)
 		if err != nil {
+			log.Println("error while decoding new topic json: ", err)
 			return http.StatusBadRequest
 		}
 		err = mapper.Execute("SELECT add_topic(%v)", topic["id"], topic["name"], topic["description"], topic["officers"])
 		if err != nil {
+			log.Println("error while inserting new topic into database")
 			return http.StatusBadRequest // TODO it could be an internal server error as well. need distinction
 		}
-		w.WriteHeader(http.StatusCreated)
-		return -1
+		client := serviceclient.New("acl-service")
+		aclEntity, _ := json.Marshal(topic)
+		resp, err := client.Post("/objects", "application/json", bytes.NewReader(aclEntity), "Authorization", r.Header.Get("Authorization"))
+		if err != nil {
+			log.Println("error while creating acl-object: ", err)
+			return http.StatusInternalServerError
+		}
+		if resp.StatusCode >= 300 {
+			log.Println("got unexpected statuscode from acl-service while creating object: ", resp.StatusCode)
+			return http.StatusInternalServerError
+		}
+		return http.StatusCreated
 	}
 	return jwtware.New(createHandler(handlerFunc))
 }
@@ -83,12 +96,19 @@ func TopicPatchHandler(mapper *pgmapper.Mapper, extractor idextractor.Extractor)
 		}
 		patch, err := jsonpatch.Decode(r.Body)
 		if err != nil {
+			log.Println("error while decoding patch: ", err)
 			return http.StatusBadRequest
 		}
 		userId := context.Get(r, "user").(*jwt.Token).Claims["id"].(string)
+		options := map[string]interface{}{
+			"userId": userId,
+			"id":     id,
+			"jwt":    r.Header.Get("Authorization"),
+		}
 		compiler := lecturepatch.ForTopics()
-		err = mapper.ApplyPatch(id, userId, patch, compiler)
+		err = mapper.ApplyPatch(patch, compiler, options)
 		if err != nil {
+			log.Println("error while applying patch: ", err)
 			return http.StatusBadRequest
 		}
 		return -1
