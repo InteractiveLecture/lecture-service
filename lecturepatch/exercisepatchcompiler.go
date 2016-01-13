@@ -3,6 +3,7 @@ package lecturepatch
 import (
 	"database/sql"
 	"fmt"
+	"log"
 	"strconv"
 
 	"github.com/InteractiveLecture/jsonpatch"
@@ -96,6 +97,7 @@ func (c *ExercisePatchCompiler) Compile(patch *jsonpatch.Patch, options map[stri
 
 //database checked
 func generateAddTask(id, userId, jwt string, officers, assistants map[string]bool, op *jsonpatch.Operation, params map[string]string) (*jsonpatch.CommandContainer, error) {
+	log.Printf("got userid %s and the following authority: %v, %v", userId, officers, assistants)
 	if err := checkAuthorityAndValidatePatch(jsonpatch.ADD, op.Type, userId, officers, assistants); err != nil {
 		return nil, err
 	}
@@ -181,11 +183,7 @@ func generateMoveOrRemoveHint(id, userId, jwt string, officers, assistants map[s
 		if err != nil {
 			return nil, err
 		}
-		newTaskPosition, err := strconv.Atoi(params["taskPosition"])
-		if err != nil {
-			return nil, jsonpatch.InvalidPatchError{"Position is not valid."}
-		}
-		return buildDefaultCommand("SELECT move_hint(%v)", id, fromParams[0], fromParams[1], newTaskPosition, newHintPosition), nil
+		return buildDefaultCommand("SELECT move_hint(%v)", id, fromParams[0], fromParams[1], newHintPosition), nil
 	default:
 		return nil, jsonpatch.InvalidPatchError{fmt.Sprintf("Only remove  or move allowed for %s", op.Path)}
 	}

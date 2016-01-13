@@ -9,6 +9,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/richterrettich/jsonpatch"
 	"github.com/satori/go.uuid"
@@ -17,12 +18,15 @@ import (
 
 var tokens = make(map[string]string)
 
+//TODO test moving/removing root modules
+
 func TestGetTopics(t *testing.T) {
 
 	//INSERT USER
 	userId, userUsername := RegisterNewUser(t, "user")
 	officerId, officerUsername := RegisterNewUser(t, "officer")
-	_, _ = RegisterNewUser(t, "assistant")
+	assistantId, assistantUsername := RegisterNewUser(t, "assistant")
+	assistantId2, assistantUsername2 := RegisterNewUser(t, "assistant")
 
 	path := "/lecture-service/users/" + userId + "/balances"
 	resp := getAuthorized(t, userUsername, path)
@@ -42,7 +46,6 @@ func TestGetTopics(t *testing.T) {
 		"officers" : ["` + officerId + `"]
 	}`
 	PostAuthorizedAndCheckStatusCode(t, "admin", path, newTopic, 201)
-
 	// add modules
 	path = "/lecture-service/topics/" + newTopicId
 	operations := make([]jsonpatch.Operation, 0)
@@ -53,13 +56,33 @@ func TestGetTopics(t *testing.T) {
 	newModuleIds = append(newModuleIds, addNewModule(&operations, "NewModule4", newModuleIds[2]))
 	newModuleIds = append(newModuleIds, addNewModule(&operations, "NewModule5", newModuleIds[2]))                  //same parent
 	newModuleIds = append(newModuleIds, addNewModule(&operations, "NewModule6", newModuleIds[3], newModuleIds[4])) //multiple parents
-	newAssistantId := uuid.NewV4().String()
-	//ADD an assistant
-	operations = append(operations, jsonpatch.Operation{
-		Type:  jsonpatch.ADD,
-		Path:  "/assistants",
-		Value: newAssistantId,
-	})
+	//Patch topic
+	operations = append(operations,
+		jsonpatch.Operation{
+			Type:  jsonpatch.ADD,
+			Path:  "/assistants",
+			Value: assistantId,
+		},
+		jsonpatch.Operation{
+			Type:  jsonpatch.ADD,
+			Path:  "/assistants",
+			Value: assistantId2,
+		},
+		jsonpatch.Operation{
+			Type: jsonpatch.REMOVE,
+			Path: "/assistants/" + assistantId2,
+		},
+		jsonpatch.Operation{
+			Type:  jsonpatch.REPLACE,
+			Path:  "/modules/" + newModuleIds[2] + "/parents/tree",
+			Value: []string{newModuleIds[0]},
+		},
+		jsonpatch.Operation{
+			Type:  jsonpatch.REPLACE,
+			Path:  "/modules/" + newModuleIds[4] + "/parents",
+			Value: []string{newModuleIds[1]},
+		},
+	)
 
 	topicPatch := jsonpatch.Patch{
 		Operations: operations,
@@ -75,78 +98,236 @@ func TestGetTopics(t *testing.T) {
 	resp = getAuthorized(t, userUsername, path)
 	modules := readArrayJsonResult(t, resp)
 	require.Equal(t, len(newModuleIds), len(modules))
-	//moduleId := modules[0]["id"].(string)
-	/*
-		//TEST TOPICS
-		checkUnauthorized(t, path)
-		resp = getAuthorized(t, userUsername, path)
-		require.Equal(t, 200, resp.StatusCode)
-		topics := readArrayJsonResult(t, resp)
-		require.Equal(t, 2, len(topics))
-		require.Equal(t, topics[0]["name"].(string), "Grundlagen der Programmierung mit Java")
-		topicId := topics[0]["id"].(string)
+	testModule := findLocalById(t, modules, newModuleIds[2], "id")
+	require.Equal(t, "/"+newModuleIds[0]+"/"+newModuleIds[2], testModule["paths"].([]interface{})[0])
+	testModule = findLocalById(t, modules, newModuleIds[3], "id")
+	require.Equal(t, "/"+newModuleIds[0]+"/"+newModuleIds[2]+"/"+newModuleIds[3], testModule["paths"].([]interface{})[0])
+	testModule = findLocalById(t, modules, newModuleIds[4], "id")
+	require.Equal(t, fmt.Sprintf("/%s/%s/%s", newModuleIds[0], newModuleIds[1], newModuleIds[4]), testModule["paths"].([]interface{})[0])
 
-		// the topic id should be in the balances gathered in last section
-		found := false
-		for _, balance := range balances {
-			if balance["topic_id"].(string) == topicId {
-				found = true
-			}
-			require.Equal(t, float64(100), balance["amount"])
-		}
-		require.True(t, found)
+	//Patch topic again
+	path = "/lecture-service/topics/" + newTopicId
+	operations = make([]jsonpatch.Operation, 0)
+	newModuleIds = append(newModuleIds, addNewModule(&operations, "NewModule7", newModuleIds[1]))
+	newModuleIds = append(newModuleIds, addNewModule(&operations, "NewModule8", newModuleIds[6]))
+	newModuleIds = append(newModuleIds, addNewModule(&operations, "NewModule9", newModuleIds[6]))
+	newModuleIds = append(newModuleIds, addNewModule(&operations, "NewModule10", newModuleIds[7], newModuleIds[8]))
+	operations = append(operations,
+		jsonpatch.Operation{
+			Type: jsonpatch.REMOVE,
+			Path: "/modules/" + newModuleIds[6],
+		},
+	)
+	topicPatch = jsonpatch.Patch{
+		Operations: operations,
+		Version:    2,
+	}
 
-		//TEST GET ONE MODULE
-		path = "/lecture-service/modules/" + moduleId
-		checkUnauthorized(t, path)
-		resp = getAuthorized(t, userUsername, path)
-		require.Equal(t, http.StatusOK, resp.StatusCode)
-		module := readSingleJsonResult(t, resp)
-		require.Equal(t, "foo", module["description"].(string))
-		exercises := module["exercises"].([]interface{})
-		require.NotZero(t, len(exercises))
-		exercise := exercises[0].(map[string]interface{})
-		exerciseTwo := exercises[1].(map[string]interface{})
-		exerciseThree := exercises[2].(map[string]interface{})
-		tasks := exercise["tasks"].([]interface{})
-		require.NotZero(t, tasks)
-		task := tasks[0].(map[string]interface{})
-		require.Equal(t, "do something", task["content"].(string))
-		hints := task["hints"].([]interface{})
-		require.NotZero(t, len(hints))
-		hintId := hints[0].(string)
-		secondHintId := hints[1].(string)
+	patchJson, _ = json.Marshal(topicPatch)
+	PatchAuthorizedAndCheckStatusCode(t, officerUsername, path, string(patchJson), 200)
 
-		//START THE MODULE
-		path = "/lecture-service/modules/" + moduleId + "/start"
-		PostAuthorizedAndCheckStatusCode(t, userUsername, path, "", http.StatusOK)
+	//check topic modules again
+	path = "/lecture-service/topics/" + newTopicId + "/modules"
+	resp = getAuthorized(t, userUsername, path)
+	modules = readArrayJsonResult(t, resp)
+	testModule = findLocalById(t, modules, newModuleIds[9], "id")
+	require.Equal(t, len(newModuleIds)-1, len(modules))
+	require.Equal(t, 2, len(testModule["paths"].([]interface{})))
+	require.Contains(t, testModule["paths"].([]interface{}), fmt.Sprintf("/%s/%s/%s/%s", newModuleIds[0], newModuleIds[1], newModuleIds[7], newModuleIds[9]))
+	require.Contains(t, testModule["paths"].([]interface{}), fmt.Sprintf("/%s/%s/%s/%s", newModuleIds[0], newModuleIds[1], newModuleIds[8], newModuleIds[9]))
+	//Patch one module
+	path = "/lecture-service/modules/" + newModuleIds[0]
+	operations = make([]jsonpatch.Operation, 0)
+	newExerciseId := addNewExercise(&operations)
+	toRemoveExerciseId := addNewExercise(&operations)
+	newVideoId := uuid.NewV4().String()
+	newScriptId := uuid.NewV4().String()
+	operations = append(operations,
+		jsonpatch.Operation{
+			Type: jsonpatch.REMOVE,
+			Path: "/exercises/" + toRemoveExerciseId,
+		},
+		jsonpatch.Operation{
+			Type:  jsonpatch.REPLACE,
+			Path:  "/description",
+			Value: "hugo",
+		},
+		jsonpatch.Operation{
+			Type:  jsonpatch.ADD,
+			Path:  "/recommendations",
+			Value: newModuleIds[1],
+		},
+		jsonpatch.Operation{
+			Type: jsonpatch.REMOVE,
+			Path: "/recommendations/" + newModuleIds[1],
+		},
+		jsonpatch.Operation{
+			Type:  jsonpatch.ADD,
+			Path:  "/video",
+			Value: newVideoId,
+		},
+		jsonpatch.Operation{
+			Type: jsonpatch.REMOVE,
+			Path: "/video/" + newVideoId,
+		},
+		jsonpatch.Operation{
+			Type:  jsonpatch.ADD,
+			Path:  "/script",
+			Value: newScriptId,
+		},
+		jsonpatch.Operation{
+			Type: jsonpatch.REMOVE,
+			Path: "/script/" + newScriptId,
+		},
+	)
+	modulePatch := jsonpatch.Patch{
+		Operations: operations,
+		Version:    1,
+	}
+	patchJson, _ = json.Marshal(modulePatch)
+	PatchAuthorizedAndCheckStatusCode(t, officerUsername, path, string(patchJson), 200)
+	// Assistants and users should not be able to do some of the above operations.
+	PatchAuthorizedAndCheckStatusCode(t, assistantUsername, path, string(patchJson), 401)
+	PatchAuthorizedAndCheckStatusCode(t, userUsername, path, string(patchJson), 401)
 
-		path = "/lecture-service/users/" + userId + "/modules"
-		checkUnauthorized(t, path)
-		resp = getAuthorized(t, "user1", path)
-		moduleHistory := readArrayJsonResult(t, resp)
-		require.Equal(t, 1, len(moduleHistory))
-		require.Equal(t, moduleHistory[0]["event_type"], "BEGIN")
+	//ADD tasks to exercise
+	path = "/lecture-service/exercises/" + newExerciseId
+	operations = make([]jsonpatch.Operation, 0)
+	_ = addNewTask(&operations, "bla blubb", 1)
+	_ = addNewTask(&operations, "asdf asdf", 2)
+	_ = addNewTask(&operations, "one last task", 3)
+	exercisePatch := jsonpatch.Patch{
+		Operations: operations,
+		Version:    1,
+	}
+	patchJson, _ = json.Marshal(exercisePatch)
+	PatchAuthorizedAndCheckStatusCode(t, officerUsername, path, string(patchJson), 200)
 
-		// TEST GET HINTS
-		path = "/lecture-service/hints/" + hintId
-		checkUnauthorized(t, path)
-		GetAuthorizedAndCheckStatusCode(t, userUsername, path, 402)
-		PostAuthorizedAndCheckStatusCode(t, userUsername, path, "", http.StatusOK)
-		PostAuthorizedAndCheckStatusCode(t, userUsername, path, "", http.StatusConflict)
+	//  add additional exercises
+	path = "/lecture-service/modules/" + newModuleIds[0]
+	operations = make([]jsonpatch.Operation, 0)
+	toRemoveExerciseId = addNewExercise(&operations)
+	newExerciseId = addNewExercise(&operations)
+	operations = append(operations,
+		jsonpatch.Operation{
+			Type: jsonpatch.REMOVE,
+			Path: "/exercises/" + toRemoveExerciseId,
+		},
+	)
+	modulePatch = jsonpatch.Patch{
+		Operations: operations,
+		Version:    2,
+	}
+	patchJson, _ = json.Marshal(modulePatch)
+	PatchAuthorizedAndCheckStatusCode(t, assistantUsername, path, string(patchJson), 200)
 
-		path = "/lecture-service/hints/" + secondHintId
-		GetAuthorizedAndCheckStatusCode(t, userUsername, path, 402)
-		PostAuthorizedAndCheckStatusCode(t, userUsername, path, "", 420)
+	path = "/lecture-service/exercises/" + newExerciseId
+	operations = make([]jsonpatch.Operation, 0)
+	_ = addNewTask(&operations, "bla blubb", 1)
+	_ = addNewTask(&operations, "asdf asdf", 2)
+	_ = addNewTask(&operations, "one last task", 3)
 
-		path = "/lecture-service/hints/" + uuid.NewV4().String()
-		PostAuthorizedAndCheckStatusCode(t, userUsername, path, "", http.StatusNotFound)
+	operations = append(operations,
+		jsonpatch.Operation{
+			Type: jsonpatch.MOVE,
+			Path: "/tasks/2",
+			From: "/tasks/1",
+		},
+		jsonpatch.Operation{
+			Type: jsonpatch.REMOVE,
+			Path: "/tasks/2",
+		},
+		jsonpatch.Operation{
+			Type:  jsonpatch.REPLACE,
+			Path:  "/tasks/1/content",
+			Value: "urf",
+		},
+	)
+	_ = addNewHint(&operations, "a hint", 1, 1)
+	_ = addNewHint(&operations, "another hint", 1, 2)
+	_ = addNewHint(&operations, "one last hint", 1, 3)
+	operations = append(operations,
+		jsonpatch.Operation{
+			Type: jsonpatch.MOVE,
+			Path: "/tasks/1/hints/2",
+			From: "/tasks/1/hints/1",
+		},
+		jsonpatch.Operation{
+			Type: jsonpatch.REMOVE,
+			Path: "/tasks/1/hints/1",
+		},
+	)
+	exercisePatch = jsonpatch.Patch{
+		Operations: operations,
+		Version:    1,
+	}
+	patchJson, _ = json.Marshal(exercisePatch)
+	PatchAuthorizedAndCheckStatusCode(t, assistantUsername, path, string(patchJson), 200)
+	// assistant 2 should not have accessrights
+	PatchAuthorizedAndCheckStatusCode(t, assistantUsername2, path, string(patchJson), 401)
 
-		// TEST COMPLETE TASK
+	// lets TEST one module
+	path = "/lecture-service/modules/" + newModuleIds[0]
+	resp = getAuthorized(t, userUsername, path)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	module := readSingleJsonResult(t, resp)
+	require.Nil(t, module["script_id"])
+	require.Nil(t, module["video_id"])
 
-		path = "/nats-remote/task-backend.task-finished"
-		for _, ta := range tasks {
-			task = ta.(map[string]interface{})
+	exercises := module["exercises"].([]interface{})
+	require.Equal(t, 2, len(exercises))
+	exercise := findRawLocalById(t, exercises, newExerciseId, "id")
+	require.Equal(t, "java", exercise["backend"].(string))
+
+	path = "/lecture-service/exercises/" + exercise["id"].(string) + "/start"
+	PostAuthorizedAndCheckStatusCode(t, userUsername, path, "", http.StatusOK)
+	path = "/lecture-service/users/" + userId + "/exercises"
+	checkUnauthorized(t, path)
+	resp = getAuthorized(t, userUsername, path)
+	exerciseHistory := readArrayJsonResult(t, resp)
+	require.Equal(t, 1, len(exerciseHistory))
+	require.Equal(t, exerciseHistory[0]["event_type"], "BEGIN")
+	path = "/lecture-service/users/" + userId + "/modules"
+	checkUnauthorized(t, path)
+	resp = getAuthorized(t, userUsername, path)
+	moduleHistory := readArrayJsonResult(t, resp)
+	require.Equal(t, 1, len(moduleHistory))
+	require.Equal(t, moduleHistory[0]["event_type"], "BEGIN")
+
+	tasks := exercise["tasks"].([]interface{})
+	require.Equal(t, 2, len(tasks))
+	task := tasks[0].(map[string]interface{})
+	require.Equal(t, "urf", task["content"].(string))
+	require.Equal(t, "one last task", tasks[1].(map[string]interface{})["content"].(string))
+	hints := task["hints"].([]interface{})
+	require.Equal(t, 2, len(hints))
+	hintId := hints[0].(string)
+	secondHintId := hints[1].(string)
+
+	path = "/lecture-service/hints/" + hintId
+	checkUnauthorized(t, path)
+	GetAuthorizedAndCheckStatusCode(t, userUsername, path, 402)
+	PostAuthorizedAndCheckStatusCode(t, userUsername, path, "", http.StatusOK)
+	PostAuthorizedAndCheckStatusCode(t, userUsername, path, "", http.StatusConflict)
+	resp = getAuthorized(t, userUsername, path)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	realHint := readSingleJsonResult(t, resp)
+	require.Equal(t, "a hint", realHint["content"].(string))
+
+	path = "/lecture-service/hints/" + secondHintId
+	GetAuthorizedAndCheckStatusCode(t, userUsername, path, 402)
+	PostAuthorizedAndCheckStatusCode(t, userUsername, path, "", 420)
+
+	path = "/lecture-service/hints/" + uuid.NewV4().String()
+	PostAuthorizedAndCheckStatusCode(t, userUsername, path, "", http.StatusNotFound)
+
+	// TEST COMPLETE TASK
+
+	path = "/nats-remote/task-backend.task-finished"
+	for _, v := range exercises {
+		exercise := v.(map[string]interface{})
+		for _, ta := range exercise["tasks"].([]interface{}) {
+			task := ta.(map[string]interface{})
 			result := map[string]interface{}{
 				"userId": userId,
 				"taskId": task["id"],
@@ -156,51 +337,90 @@ func TestGetTopics(t *testing.T) {
 			PostAuthorizedAndCheckStatusCode(t, userUsername, path, string(re), 200)
 			time.Sleep(500 * time.Millisecond)
 		}
-		for _, ta := range exerciseTwo["tasks"].([]interface{}) {
-			task = ta.(map[string]interface{})
-			result := map[string]interface{}{
-				"userId": userId,
-				"taskId": task["id"],
-			}
-			re, err := json.Marshal(result)
-			require.Nil(t, err)
-			PostAuthorizedAndCheckStatusCode(t, userUsername, path, string(re), 200)
-			time.Sleep(500 * time.Millisecond)
-		}
-		for _, ta := range exerciseThree["tasks"].([]interface{}) {
-			task = ta.(map[string]interface{})
-			result := map[string]interface{}{
-				"userId": userId,
-				"taskId": task["id"],
-			}
-			re, err := json.Marshal(result)
-			require.Nil(t, err)
-			PostAuthorizedAndCheckStatusCode(t, userUsername, path, string(re), 200)
-			time.Sleep(500 * time.Millisecond)
-		}
+	}
 
-		path = "/lecture-service/users/" + userId + "/exercises"
-		resp = getAuthorized(t, userUsername, path)
-		require.Equal(t, http.StatusOK, resp.StatusCode)
-		exerciseHistory := readArrayJsonResult(t, resp)
-		require.NotZero(t, exerciseHistory)
-		require.Equal(t, "FINISH", exerciseHistory[len(exerciseHistory)-1]["description"])
+	path = "/lecture-service/users/" + userId + "/exercises"
+	resp = getAuthorized(t, userUsername, path)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	exerciseHistory = readArrayJsonResult(t, resp)
+	require.NotZero(t, exerciseHistory)
+	require.Equal(t, "FINISH", exerciseHistory[len(exerciseHistory)-1]["event_type"])
 
-		path = "/lecture-service/users/" + userId + "/modules"
-		resp = getAuthorized(t, userUsername, path)
-		require.Equal(t, http.StatusOK, resp.StatusCode)
-		moduleHistory = readArrayJsonResult(t, resp)
-		require.NotZero(t, exerciseHistory)
-		require.Equal(t, "FINISH", moduleHistory[len(moduleHistory)-1]["event_type"])
+	path = "/lecture-service/users/" + userId + "/modules"
+	resp = getAuthorized(t, userUsername, path)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	moduleHistory = readArrayJsonResult(t, resp)
+	require.NotZero(t, exerciseHistory)
+	require.Equal(t, "FINISH", moduleHistory[len(moduleHistory)-1]["event_type"])
 
-		path = "/lecture-service/users/" + userId + "/balances"
-		resp = getAuthorized(t, userUsername, path)
-		require.Equal(t, http.StatusOK, resp.StatusCode)
-		balances = readArrayJsonResult(t, resp)
-		require.Equal(t, float64(600), balances[0]["amount"])
-	*/
+	path = "/lecture-service/users/" + userId + "/balances"
+	resp = getAuthorized(t, userUsername, path)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	balances = readArrayJsonResult(t, resp)
+	balance := findLocalById(t, balances, newTopicId, "topic_id")
+	require.Equal(t, float64(500), balance["amount"])
 }
 
+func findRawLocalById(t *testing.T, collection []interface{}, id, idField string) map[string]interface{} {
+	var result map[string]interface{}
+	for _, v := range collection {
+		val := v.(map[string]interface{})
+		if val[idField].(string) == id {
+			result = val
+			break
+		}
+	}
+	require.NotNil(t, result)
+	return result
+}
+func findLocalById(t *testing.T, collection []map[string]interface{}, id, idField string) map[string]interface{} {
+	var result map[string]interface{}
+	for _, v := range collection {
+		if v[idField].(string) == id {
+			result = v
+			break
+		}
+	}
+	require.NotNil(t, result)
+	return result
+}
+
+func addNewHint(operations *[]jsonpatch.Operation, hint string, taskPosition, position int) string {
+	newHint := map[string]interface{}{
+		"id":       uuid.NewV4().String(),
+		"content":  hint,
+		"position": position,
+		"cost":     100,
+	}
+	addSubEntity(operations, newHint, fmt.Sprintf("/tasks/%d/hints", taskPosition))
+	return newHint["id"].(string)
+}
+func addNewTask(operations *[]jsonpatch.Operation, task string, position int) string {
+	newTask := map[string]interface{}{
+		"id":       uuid.NewV4().String(),
+		"content":  task,
+		"position": position,
+	}
+	addSubEntity(operations, newTask, "/tasks")
+	return newTask["id"].(string)
+}
+
+func addNewExercise(operations *[]jsonpatch.Operation) string {
+	newExercise := map[string]interface{}{
+		"id":      uuid.NewV4().String(),
+		"backend": "java",
+	}
+	addSubEntity(operations, newExercise, "/exercises")
+	return newExercise["id"].(string)
+}
+
+func addSubEntity(operations *[]jsonpatch.Operation, entity map[string]interface{}, path string) {
+	*operations = append(*operations, jsonpatch.Operation{
+		Type:  jsonpatch.ADD,
+		Path:  path,
+		Value: entity,
+	})
+}
 func addNewModule(operations *[]jsonpatch.Operation, description string, parents ...string) string {
 	if parents == nil {
 		parents = []string{}
@@ -212,12 +432,7 @@ func addNewModule(operations *[]jsonpatch.Operation, description string, parents
 		"script_id":   uuid.NewV4().String(),
 		"parents":     parents,
 	}
-	jsonBytes, _ := json.Marshal(newModule)
-	*operations = append(*operations, jsonpatch.Operation{
-		Type:  jsonpatch.ADD,
-		Path:  "/modules",
-		Value: string(jsonBytes),
-	})
+	addSubEntity(operations, newModule, "/modules")
 	return newModule["id"].(string)
 }
 

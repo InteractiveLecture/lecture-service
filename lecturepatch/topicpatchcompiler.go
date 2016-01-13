@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"strconv"
 	"strings"
 
 	"github.com/InteractiveLecture/jsonpatch"
@@ -27,12 +26,7 @@ func generateAddModule(id, userId, jwt string, officers, assistants map[string]b
 		log.Println("Patch not acceptable: ", err)
 		return nil, err
 	}
-	value := make(map[string]interface{})
-	err := json.NewDecoder(strings.NewReader(op.Value.(string))).Decode(&value)
-	if err != nil {
-		log.Println("error while decoding module: ", err)
-		return nil, err
-	}
+	value := op.Value.(map[string]interface{})
 	command := buildDefaultCommand("SELECT add_module(%v)", value["id"].(string), id, value["description"].(string), value["video_id"].(string), value["script_id"].(string), value["parents"])
 	command.AfterCallback = func(transaction, prev interface{}) (interface{}, error) {
 		client := serviceclient.New("acl-service")
@@ -48,11 +42,11 @@ func generateAddModule(id, userId, jwt string, officers, assistants map[string]b
 		}
 		if len(assistants) > 0 {
 			assistantsString := ""
-			for _, a := range assistants {
-				assistantsString = assistantsString + "&sid=" + strconv.FormatBool(a)
+			for k, _ := range assistants {
+				assistantsString = assistantsString + "&sid=" + k
 			}
 			assistantsString = strings.TrimLeft(assistantsString, "&")
-			permissions, _ := json.Marshal(map[string]bool{"read": true, "create": true, "update": false, "delete": false})
+			permissions, _ := json.Marshal(map[string]bool{"read_permission": true, "create_permission": true, "update_permission": false, "delete_permission": false})
 			return nil, checkStatus(client.Put(fmt.Sprintf("/objects/%s/permissions?%s", value["id"], assistantsString), "application/json", bytes.NewReader(permissions), "Authorization", jwt))
 		}
 		return nil, nil

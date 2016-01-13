@@ -108,6 +108,10 @@ func TopicPatchHandler(mapper *pgmapper.Mapper, extractor idextractor.Extractor)
 		compiler := lecturepatch.ForTopics()
 		err = mapper.ApplyPatch(patch, compiler, options)
 		if err != nil {
+			if err == lecturepatch.PermissionDeniedError {
+				log.Println(err)
+				return http.StatusUnauthorized
+			}
 			log.Println("error while applying patch: ", err)
 			return http.StatusBadRequest
 		}

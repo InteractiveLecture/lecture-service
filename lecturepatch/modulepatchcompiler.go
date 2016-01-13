@@ -1,8 +1,10 @@
 package lecturepatch
 
 import (
+	"bytes"
 	"database/sql"
-	"strings"
+	"encoding/json"
+	"log"
 
 	"github.com/InteractiveLecture/jsonpatch"
 	"github.com/InteractiveLecture/serviceclient"
@@ -139,13 +141,15 @@ func generateRemoveScript(id, userId, jwt string, officers, assistants map[strin
 
 //database checked
 func generateAddExercise(id, userId, jwt string, officers, assistants map[string]bool, op *jsonpatch.Operation, params map[string]string) (*jsonpatch.CommandContainer, error) {
+	log.Printf("Got the following userId: %s  and the follwoing authority: %v , %v", userId, officers, assistants)
 	if err := checkAuthorityAndValidatePatch(jsonpatch.ADD, op.Type, userId, officers, assistants); err != nil {
 		return nil, err
 	}
 	value := op.Value.(map[string]interface{})
 	command := buildDefaultCommand("SELECT add_exercise(%v)", value["id"], id, value["backend"])
 	command.AfterCallback = func(transaction, prev interface{}) (interface{}, error) {
-		return nil, checkStatus(serviceclient.New("acl-service").Post("/objects", "json", strings.NewReader(value["id"].(string)), "Authorization", jwt))
+		jsonBytes, _ := json.Marshal(value)
+		return nil, checkStatus(serviceclient.New("acl-service").Post("/objects", "json", bytes.NewReader(jsonBytes), "Authorization", jwt))
 	}
 	return command, nil
 }

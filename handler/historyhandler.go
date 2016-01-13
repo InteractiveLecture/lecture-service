@@ -2,11 +2,9 @@ package handler
 
 import (
 	"bytes"
-	"encoding/json"
 	"io"
 	"log"
 	"net/http"
-	"time"
 
 	"github.com/InteractiveLecture/id-extractor"
 	"github.com/InteractiveLecture/lecture-service/paginator"
@@ -157,6 +155,7 @@ func TopicBalanceHandler(mapper *pgmapper.Mapper, extractor idextractor.Extracto
 	return jwtware.New(createHandler(handlerFunc))
 }
 
+/**
 func ModuleStartHandler(mapper *pgmapper.Mapper, extractor idextractor.Extractor) http.Handler {
 	handlerFunc := func(w http.ResponseWriter, r *http.Request) int {
 		user := context.Get(r, "user")
@@ -172,20 +171,17 @@ func ModuleStartHandler(mapper *pgmapper.Mapper, extractor idextractor.Extractor
 		return -1
 	}
 	return jwtware.New(createHandler(handlerFunc))
-}
+}*/
 
 func ExerciseStartHandler(mapper *pgmapper.Mapper, extractor idextractor.Extractor) http.Handler {
 	handlerFunc := func(w http.ResponseWriter, r *http.Request) int {
-		id, err := extractor(r)
+		user := context.Get(r, "user")
+		id := user.(*jwt.Token).Claims["id"]
+		exerciseId, err := extractor(r)
 		if err != nil {
 			return http.StatusInternalServerError
 		}
-		var exerciseId string
-		err = json.NewDecoder(r.Body).Decode(exerciseId)
-		if err != nil {
-			return http.StatusBadRequest
-		}
-		err = mapper.Execute("insert into exercise_progress_histories(user_id,exercise_id,amount,time,state) values(%v)", id, exerciseId, 0, time.Now(), 1)
+		err = mapper.Execute("select start_exercise(%v)", exerciseId, id)
 		if err != nil {
 			return http.StatusNotFound
 		}

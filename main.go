@@ -68,9 +68,6 @@ func main() {
 	r.Path("/modules/{id}").
 		Methods("GET").
 		Handler(handler.ModulesGetHandler(mapper, extractor))
-	r.Path("/modules/{id}/start").
-		Methods("POST").
-		Handler(handler.ModuleStartHandler(mapper, extractor))
 	r.Path("/modules/{id}").
 		Methods("PATCH").
 		Handler(handler.ModulesPatchHandler(mapper, extractor))
@@ -82,6 +79,13 @@ func main() {
 	r.Path("/hints/{id}").
 		Methods("POST").
 		Handler(handler.PurchaseHintHandler(mapper, extractor))
+	r.Path("/exercises/{id}").
+		Methods("PATCH").
+		Handler(handler.ExercisePatchHandler(mapper, extractor))
+	r.Path("/exercises/{id}/start").
+		Methods("POST").
+		Handler(handler.ExerciseStartHandler(mapper, extractor))
+
 	//TODO route for GetOneExercise
 
 	//HISTORIES AND PROGRESS
@@ -100,9 +104,6 @@ func main() {
 	r.Path("/users/{id}/exercises").
 		Methods("GET").
 		Handler(handler.ExerciseHistoryHandler(mapper, extractor))
-	/*	r.Path("/users/{id}/exercises/start").
-		Methods("POST").
-		Handler(handler.ExerciseHistoryHandler(mapper, extractor))*/
 
 	nc, err := nats.Connect("nats://" + *natsHost + ":" + *natsPort)
 	if err != nil {

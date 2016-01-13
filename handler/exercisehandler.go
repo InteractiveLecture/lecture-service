@@ -115,6 +115,11 @@ func ExercisePatchHandler(mapper *pgmapper.Mapper, extractor idextractor.Extract
 		compiler := lecturepatch.ForExercises()
 		err = mapper.ApplyPatch(patch, compiler, options)
 		if err != nil {
+			if err == lecturepatch.PermissionDeniedError {
+				log.Println(err)
+				return http.StatusUnauthorized
+			}
+			log.Println("error while applying exercise patch: ", err)
 			return http.StatusBadRequest
 		}
 		return -1

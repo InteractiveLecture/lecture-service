@@ -70,8 +70,10 @@ func ModulesPatchHandler(mapper *pgmapper.Mapper, extractor idextractor.Extracto
 		if err != nil {
 			return http.StatusInternalServerError
 		}
+		log.Println("got patch request for module")
 		patch, err := jsonpatch.Decode(r.Body)
 		if err != nil {
+			log.Println("error while decoding json: ", err)
 			return http.StatusBadRequest
 		}
 		userId := context.Get(r, "user").(*jwt.Token).Claims["id"].(string)
@@ -83,7 +85,13 @@ func ModulesPatchHandler(mapper *pgmapper.Mapper, extractor idextractor.Extracto
 		compiler := lecturepatch.ForModules()
 		err = mapper.ApplyPatch(patch, compiler, options)
 		if err != nil {
-			return http.StatusBadRequest
+			if err == lecturepatch.PermissionDeniedError {
+				log.Println(err)
+				return http.StatusUnauthorized
+			} else {
+				log.Println("error while applying module patch: ", err)
+				return http.StatusBadRequest
+			}
 		}
 		return -1
 	}
